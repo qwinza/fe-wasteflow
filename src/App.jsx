@@ -1,30 +1,28 @@
-import React from 'react';
-import { BrowserRouter, Routes, Route, Link } from 'react-router-dom';
-import AdminDashboard from './pages/AdminDashboard';
-import UserDashboard from './pages/UserDashboard';
-import './index.css';
+import { BrowserRouter, Routes, Route } from 'react-router-dom';
+import LandingPage from './pages/LandingPage';
+import LoginPage from './pages/LoginPage';
+import AdminLayout from './layouts/AdminLayout';
+import Dashboard from './pages/admin/Dashboard';
+import TransactionTable from './pages/admin/TransactionTable';
 
 function App() {
   return (
     <BrowserRouter>
-      <div className="App">
-        <nav className="navbar">
-          <Link to="/" className="navbar-brand">
-            <div style={{ background: 'var(--primary)', color: 'white', padding: '0.25rem 0.5rem', borderRadius: '0.5rem' }}>WF</div>
-            WasteFlow
-          </Link>
-          <div className="nav-links">
-            <Link to="/warga" className="nav-link">Portal Warga</Link>
-            <Link to="/admin" className="nav-link">Portal Admin</Link>
-          </div>
-        </nav>
-
-        <Routes>
-          <Route path="/" element={<UserDashboard />} />
-          <Route path="/warga" element={<UserDashboard />} />
-          <Route path="/admin" element={<AdminDashboard />} />
-        </Routes>
-      </div>
+      <Routes>
+        <Route path="/" element={<LandingPage />} />
+        <Route path="/login" element={<LoginPage />} />
+        
+        {/* Admin Routes */}
+        <Route path="/admin" element={<AdminLayout />}>
+          <Route path="dashboard" element={<Dashboard />} />
+          <Route path="transactions" element={<TransactionTable />} />
+          <Route path="users" element={<div className="p-4 bg-white rounded-xl shadow-sm border border-slate-100 h-64 flex items-center justify-center text-slate-500">Fitur Kelola Kawasan Sedang Dibangun...</div>} />
+          <Route path="locations" element={<div className="p-4 bg-white rounded-xl shadow-sm border border-slate-100 h-64 flex items-center justify-center text-slate-500">Fitur Kelola TPS Sedang Dibangun...</div>} />
+        </Route>
+        
+        {/* Warga Routes (Placeholder) */}
+        <Route path="/warga/home" element={<div className="min-h-screen flex items-center justify-center bg-eco-50"><h1 className="text-2xl font-bold text-eco-700">Selamat Datang di Portal Kawasan!</h1></div>} />
+      </Routes>
     </BrowserRouter>
   );
 }
