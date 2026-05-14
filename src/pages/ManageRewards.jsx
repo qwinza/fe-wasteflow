@@ -1,17 +1,31 @@
 import React, { useState, useEffect } from 'react';
-import { Gift, Plus, Edit2, Trash2, Search, ArrowLeft, ShoppingBag, X, Check } from 'lucide-react';
+import { Gift, Plus, Edit2, Trash2, Search, ArrowLeft, ShoppingBag, X, Check, Package } from 'lucide-react';
 import { Link } from 'react-router-dom';
+import rewardService from '../services/reward.service';
 
 const ManageRewards = () => {
-  const [rewards, setRewards] = useState([
-    { id: 1, name: 'Voucher Listrik 50rb', points: 5000, category: 'Utilitas', stock: 50, img: 'https://images.unsplash.com/photo-1473341304170-971dccb5ac1e?w=300' },
-    { id: 2, name: 'Paket Sembako Wilayah', points: 7500, category: 'Logistik', stock: 20, img: 'https://images.unsplash.com/photo-1542838132-92c53300491e?w=300' },
-    { id: 3, name: 'Peralatan Kebersihan', points: 3000, category: 'Peralatan', stock: 15, img: 'https://images.unsplash.com/photo-1584622650111-993a426fbf0a?w=300' }
-  ]);
+  const [rewards, setRewards] = useState([]);
+  const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
   const [editingReward, setEditingReward] = useState(null);
-  const [formData, setFormData] = useState({ name: '', points: '', category: 'Umum', stock: '', img: '' });
+  const [formData, setFormData] = useState({ name: '', points: '', category: 'Umum', stock: '', imageUrl: '', description: '' });
   const [searchTerm, setSearchTerm] = useState('');
+
+  useEffect(() => {
+    fetchRewards();
+  }, []);
+
+  const fetchRewards = async () => {
+    try {
+      setLoading(true);
+      const res = await rewardService.getRewards();
+      setRewards(Array.isArray(res.data) ? res.data : []);
+    } catch (err) {
+      console.error("Error fetching rewards", err);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const handleOpenModal = (reward = null) => {
     if (reward) {
@@ -19,7 +33,7 @@ const ManageRewards = () => {
       setFormData({ ...reward });
     } else {
       setEditingReward(null);
-      setFormData({ name: '', points: '', category: 'Umum', stock: '', img: 'https://images.unsplash.com/photo-1513519245088-0e12902e5a38?w=300' });
+      setFormData({ name: '', points: '', category: 'Umum', stock: '', imageUrl: 'https://images.unsplash.com/photo-1513519245088-0e12902e5a38?w=300', description: '' });
     }
     setShowModal(true);
   };
@@ -29,19 +43,29 @@ const ManageRewards = () => {
     setEditingReward(null);
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    if (editingReward) {
-      setRewards(rewards.map(r => r.id === editingReward.id ? { ...formData, id: r.id } : r));
-    } else {
-      setRewards([...rewards, { ...formData, id: Date.now() }]);
+    try {
+      if (editingReward) {
+        await rewardService.updateReward(editingReward.id, formData);
+      } else {
+        await rewardService.createReward(formData);
+      }
+      fetchRewards();
+      handleCloseModal();
+    } catch (err) {
+      console.error("Error saving reward", err);
     }
-    handleCloseModal();
   };
 
-  const handleDelete = (id) => {
+  const handleDelete = async (id) => {
     if (window.confirm('Hapus reward ini?')) {
-      setRewards(rewards.filter(r => r.id !== id));
+      try {
+        await rewardService.deleteReward(id);
+        fetchRewards();
+      } catch (err) {
+        console.error("Error deleting reward", err);
+      }
     }
   };
 
@@ -77,7 +101,7 @@ const ManageRewards = () => {
         <h1 style={{ fontSize: '2.5rem', fontWeight: '800', marginBottom: '0.5rem', color: 'var(--text)' }}>
           Kelola <span style={{ color: 'var(--primary)' }}>Katalog Reward</span>
         </h1>
-        <p style={{ color: 'var(--text-muted)', fontSize: '1.1rem' }}>Atur daftar hadiah yang dapat ditukarkan oleh TPS dengan poin mereka.</p>
+        <p style={{ color: 'var(--text-muted)', fontSize: '1.1rem' }}>Atur katalog reward yang akan ditukarkan dengan poin</p>
       </div>
 
       {/* Search and Filters */}
@@ -122,7 +146,13 @@ const ManageRewards = () => {
                 <tr key={reward.id} style={{ borderBottom: '1px solid var(--border)' }}>
                   <td style={{ padding: '1.2rem 1.5rem' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-                      <img src={reward.img} alt="" style={{ width: '48px', height: '48px', borderRadius: '10px', objectFit: 'cover' }} />
+                      <div style={{ width: '50px', height: '50px', borderRadius: '12px', overflow: 'hidden', background: '#f1f5f9', display: 'flex', alignItems: 'center', justifyContent: 'center', border: '1px solid var(--border)' }}>
+                        {reward.imageUrl ? (
+                          <img src={reward.imageUrl} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                        ) : (
+                          <Package size={20} color="var(--primary)" />
+                        )}
+                      </div>
                       <span style={{ fontWeight: '700', color: 'var(--text)' }}>{reward.name}</span>
                     </div>
                   </td>
@@ -224,9 +254,19 @@ const ManageRewards = () => {
                 <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: '600', fontSize: '0.9rem' }}>URL Gambar</label>
                 <input 
                   type="text" 
-                  value={formData.img}
-                  onChange={(e) => setFormData({...formData, img: e.target.value})}
+                  value={formData.imageUrl}
+                  onChange={(e) => setFormData({...formData, imageUrl: e.target.value})}
                   style={{ width: '100%', padding: '0.8rem', borderRadius: '12px', border: '1px solid var(--border)', outline: 'none' }}
+                />
+              </div>
+              
+              <div style={{ marginBottom: '1.5rem' }}>
+                <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: '600', fontSize: '0.9rem' }}>Deskripsi</label>
+                <textarea 
+                  value={formData.description}
+                  onChange={(e) => setFormData({...formData, description: e.target.value})}
+                  style={{ width: '100%', padding: '0.8rem', borderRadius: '12px', border: '1px solid var(--border)', outline: 'none', resize: 'none' }}
+                  rows="3"
                 />
               </div>
               

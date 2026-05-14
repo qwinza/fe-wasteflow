@@ -1,241 +1,296 @@
 import React, { useState, useEffect } from 'react';
-import { Award, ShoppingBag, ArrowLeft, CheckCircle, AlertCircle, TrendingUp, Gift } from 'lucide-react';
+import { 
+  Award, 
+  ShoppingBag, 
+  ArrowLeft, 
+  CheckCircle, 
+  AlertCircle, 
+  Gift, 
+  Wallet, 
+  Info,
+  ChevronRight,
+  ShieldCheck,
+  Zap
+} from 'lucide-react';
 import { Link } from 'react-router-dom';
-import authService from '../services/auth.service';
+import rewardService from '../services/reward.service';
 import wasteService from '../services/waste.service';
+import authService from '../services/auth.service';
 
 const RedeemPoints = () => {
+  const [rewards, setRewards] = useState([]);
   const [points, setPoints] = useState(0);
   const [loading, setLoading] = useState(true);
   const [redeeming, setRedeeming] = useState(null);
   const [message, setMessage] = useState(null);
   const currentUser = authService.getCurrentUser();
-
-  // Placeholder rewards data
-  const rewards = [
-    {
-      id: 1,
-      name: 'Voucher Listrik Rp 50.000',
-      points: 5000,
-      category: 'Utilitas',
-      image: 'https://images.unsplash.com/photo-1473341304170-971dccb5ac1e?auto=format&fit=crop&q=80&w=300',
-      description: 'Token listrik prabayar untuk kebutuhan TPS/Warga.'
-    },
-    {
-      id: 2,
-      name: 'Paket Sembako Premium',
-      points: 7500,
-      category: 'Logistik',
-      image: 'https://images.unsplash.com/photo-1542838132-92c53300491e?auto=format&fit=crop&q=80&w=300',
-      description: 'Beras 5kg, Minyak 2L, dan Gula 1kg.'
-    },
-    {
-      id: 3,
-      name: 'Alat Kebersihan Baru',
-      points: 3000,
-      category: 'Peralatan',
-      image: 'https://images.unsplash.com/photo-1584622650111-993a426fbf0a?auto=format&fit=crop&q=80&w=300',
-      description: 'Satu set sapu, pengki, dan tempat sampah pilah.'
-    },
-    {
-      id: 4,
-      name: 'Pupuk Kompos Organik (10kg)',
-      points: 2000,
-      category: 'Pertanian',
-      image: 'https://images.unsplash.com/photo-1585314062340-f1a5a7c9328d?auto=format&fit=crop&q=80&w=300',
-      description: 'Pupuk berkualitas hasil olahan sampah organik.'
-    },
-    {
-      id: 5,
-      name: 'Voucher Belanja Rp 100.000',
-      points: 9000,
-      category: 'Voucher',
-      image: 'https://images.unsplash.com/photo-1556742044-3c52d6e88c62?auto=format&fit=crop&q=80&w=300',
-      description: 'Dapat digunakan di minimarket rekanan WasteFlow.'
-    },
-    {
-      id: 6,
-      name: 'Tong Sampah Bio-Degradable',
-      points: 4500,
-      category: 'Peralatan',
-      image: 'https://images.unsplash.com/photo-1532996122724-e3c354a0b15b?auto=format&fit=crop&q=80&w=300',
-      description: 'Tempat sampah modern untuk mempermudah pemilahan.'
-    }
-  ];
+  const userId = currentUser?.id;
 
   useEffect(() => {
-    const fetchPoints = async () => {
+    const fetchData = async () => {
       try {
-        const res = await wasteService.getDepositsByUser(currentUser.id);
-        const total = res.data.reduce((acc, curr) => acc + (curr.points || 0), 0);
-        setPoints(total);
+        setLoading(true);
+        
+        // Fetch User Deposits (Earned Points)
+        const resDeposits = await wasteService.getDepositsByUser(userId);
+        const depositData = Array.isArray(resDeposits.data) ? resDeposits.data : [];
+        const totalEarned = depositData.reduce((acc, curr) => acc + (curr.points || 0), 0);
+
+        // Fetch User Redemptions (Spent Points)
+        const resRedemptions = await rewardService.getUserRedemptions(userId);
+        const redemptionData = Array.isArray(resRedemptions.data) ? resRedemptions.data : [];
+        const totalSpent = redemptionData.reduce((acc, curr) => acc + (curr.pointsUsed || 0), 0);
+
+        setPoints(totalEarned - totalSpent);
+
+        // Fetch Rewards
+        const resRewards = await rewardService.getRewards();
+        setRewards(Array.isArray(resRewards.data) ? resRewards.data : []);
       } catch (e) {
-        console.error("Error fetching points", e);
-        setPoints(12500); // Demo fallback
+        console.error("Error fetching data:", e);
       } finally {
         setLoading(false);
       }
     };
 
-    if (currentUser?.id) {
-      fetchPoints();
-    }
-  }, [currentUser]);
+    if (userId) fetchData();
+    const timer = setTimeout(() => setLoading(false), 5000);
+    return () => clearTimeout(timer);
+  }, [userId]);
 
-  const handleRedeem = (reward) => {
+  const handleRedeem = async (reward) => {
     if (points < reward.points) {
-      setMessage({ type: 'error', text: 'Poin TPS Anda tidak cukup untuk menukarkan reward ini.' });
+      setMessage({ type: 'error', text: 'Poin Anda tidak cukup untuk menukarkan reward ini.' });
       return;
     }
-
-    setRedeeming(reward.id);
     
-    // Simulate API call
-    setTimeout(() => {
-      setPoints(prev => prev - reward.points);
-      setMessage({ type: 'success', text: `Berhasil! ${reward.name} telah diproses untuk TPS Anda.` });
-      setRedeeming(null);
+    setRedeeming(reward.id);
+    try {
+      await rewardService.redeemReward(reward.id, userId);
       
-      // Clear message after 3s
-      setTimeout(() => setMessage(null), 3000);
-    }, 1500);
+      setMessage({ 
+        type: 'success', 
+        text: `Berhasil! ${reward.name} telah berhasil ditukarkan. Silakan hubungi petugas TPS untuk pengambilan.` 
+      });
+      
+      setPoints(prev => prev - reward.points);
+      setRewards(prev => prev.map(r => 
+        r.id === reward.id ? { ...r, stock: r.stock - 1 } : r
+      ));
+    } catch (err) {
+      console.error("Redemption failed", err);
+      setMessage({ type: 'error', text: 'Gagal melakukan penukaran. Silakan coba lagi nanti.' });
+    } finally {
+      setRedeeming(null);
+    }
+  };
+
+  const getDefaultImage = (category) => {
+    switch (category) {
+      case 'Voucher': return 'https://images.unsplash.com/photo-1626000289354-944415891398?w=500'; // Voucher/Coupon
+      case 'Logistik': return 'https://images.unsplash.com/photo-1586528116311-ad8dd3c8310d?w=500'; // Logistics/Rice
+      case 'Peralatan': return 'https://images.unsplash.com/photo-1581244277943-fe4a9c777189?w=500'; // Tools
+      case 'Pertanian': return 'https://images.unsplash.com/photo-1615811361523-6bd03d7748e7?w=500'; // Fertilizer
+      default: return 'https://images.unsplash.com/photo-1513519245088-0e12902e5a38?w=500'; // Generic
+    }
   };
 
   if (loading) return (
     <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '80vh' }}>
-      <div style={{ textAlign: 'center', color: 'var(--text-muted)' }}>
-        <div style={{ width: '40px', height: '40px', border: '4px solid var(--primary-light)', borderTop: '4px solid var(--primary)', borderRadius: '50%', animation: 'spin 1s linear infinite', margin: '0 auto 1rem auto' }}></div>
-        <p>Memuat Katalog Reward...</p>
-      </div>
+       <div className="spinner"></div>
     </div>
   );
 
   return (
-    <div className="container fade-in" style={{ padding: '2rem' }}>
-      {/* Header */}
-      <div style={{ marginBottom: '2rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-        <Link to="/warga" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', textDecoration: 'none', color: 'var(--text-muted)', fontWeight: '600', fontSize: '0.9rem' }}>
-          <ArrowLeft size={18} /> Kembali ke Dashboard
-        </Link>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', background: 'var(--primary-light)', padding: '0.5rem 1rem', borderRadius: '12px', border: '1px solid rgba(16, 185, 129, 0.2)' }}>
-          <Award size={20} color="var(--primary)" />
-          <span style={{ fontWeight: '700', color: 'var(--primary-dark)' }}>Saldo Poin TPS: {points.toLocaleString()}</span>
+    <div className="container fade-in" style={{ paddingBottom: '5rem', maxWidth: '1200px' }}>
+      
+      {/* Admin-style Header Section */}
+      <div style={{ 
+        display: 'flex', 
+        justifyContent: 'space-between', 
+        alignItems: 'flex-end', 
+        marginBottom: '3rem',
+        padding: '1rem 0.5rem 0 0.5rem'
+      }}>
+        <div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '0.5rem' }}>
+            <div style={{ background: 'var(--primary)', color: 'white', padding: '0.5rem', borderRadius: '12px' }}>
+              <ShoppingBag size={20} />
+            </div>
+            <span style={{ fontWeight: '700', color: 'var(--primary)', fontSize: '0.9rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+              Layanan Penukaran
+            </span>
+          </div>
+          <h1 style={{ fontSize: '2.5rem', fontWeight: '800', color: 'var(--text)', letterSpacing: '-0.02em' }}>
+            Katalog <span style={{ color: 'var(--primary)' }}>Reward</span>
+          </h1>
+          <p style={{ color: 'var(--text-muted)', marginTop: '0.5rem', fontSize: '1.1rem' }}>Tukarkan poin hasil pengelolaan sampah dengan hadiah menarik.</p>
         </div>
-      </div>
 
-      <div style={{ marginBottom: '3rem' }}>
-        <h1 style={{ fontSize: '2.5rem', fontWeight: '800', marginBottom: '0.5rem', color: 'var(--text)' }}>
-          Penukaran Reward <span style={{ color: 'var(--primary)' }}>TPS</span>
-        </h1>
-        <p style={{ color: 'var(--text-muted)', fontSize: '1.1rem' }}>Tukarkan poin hasil pengelolaan sampah TPS Anda dengan berbagai reward menarik.</p>
-      </div>
-
-      {message && (
-        <div style={{ 
-          marginBottom: '2rem', 
-          padding: '1.25rem', 
-          borderRadius: '16px', 
+        <Link to="/warga" style={{ 
           display: 'flex', 
           alignItems: 'center', 
-          gap: '1rem',
-          background: message.type === 'success' ? '#ecfdf5' : '#fef2f2',
-          border: `1px solid ${message.type === 'success' ? '#10b981' : '#ef4444'}`,
-          color: message.type === 'success' ? '#065f46' : '#991b1b',
-          animation: 'slideDown 0.3s ease-out'
+          gap: '0.5rem', 
+          textDecoration: 'none', 
+          color: 'var(--text-muted)', 
+          fontWeight: '700',
+          padding: '0.8rem 1.2rem',
+          borderRadius: '14px',
+          background: 'white',
+          border: '1px solid var(--border)',
+          boxShadow: 'var(--shadow-sm)'
         }}>
-          {message.type === 'success' ? <CheckCircle size={24} /> : <AlertCircle size={24} />}
-          <span style={{ fontWeight: '600' }}>{message.text}</span>
-          <style>{`@keyframes slideDown { from { opacity: 0; transform: translateY(-10px); } to { opacity: 1; transform: translateY(0); } }`}</style>
-        </div>
-      )}
-
-      {/* Rewards Grid */}
-      <h3 style={{ fontSize: '1.5rem', fontWeight: '700', marginBottom: '2rem', display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-        <ShoppingBag color="var(--primary)" /> Katalog Reward Tersedia
-      </h3>
-
-      <div style={{ 
-        display: 'grid', 
-        gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', 
-        gap: '2rem' 
-      }}>
-        {rewards.map(reward => (
-          <div key={reward.id} className="card" style={{ 
-            padding: '0', 
-            borderRadius: '20px', 
-            overflow: 'hidden', 
-            display: 'flex', 
-            flexDirection: 'column',
-            transition: 'all 0.3s ease',
-            border: '1px solid var(--border)',
-            boxShadow: '0 4px 15px rgba(0,0,0,0.03)'
-          }} onMouseOver={(e) => {
-            e.currentTarget.style.transform = 'translateY(-10px)';
-            e.currentTarget.style.boxShadow = '0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)';
-          }} onMouseOut={(e) => {
-            e.currentTarget.style.transform = 'translateY(0)';
-            e.currentTarget.style.boxShadow = '0 4px 15px rgba(0,0,0,0.03)';
-          }}>
-            <div style={{ height: '180px', width: '100%', position: 'relative' }}>
-              <img src={reward.image} alt={reward.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-              <div style={{ 
-                position: 'absolute', 
-                top: '1rem', 
-                right: '1rem', 
-                background: 'rgba(255,255,255,0.9)', 
-                padding: '0.4rem 0.8rem', 
-                borderRadius: '99px', 
-                fontSize: '0.75rem', 
-                fontWeight: '700',
-                color: 'var(--text)',
-                backdropFilter: 'blur(4px)'
-              }}>
-                {reward.category}
-              </div>
-            </div>
-            <div style={{ padding: '1.5rem', flex: 1, display: 'flex', flexDirection: 'column' }}>
-              <h4 style={{ fontSize: '1.2rem', fontWeight: '700', marginBottom: '0.5rem', color: 'var(--text)' }}>{reward.name}</h4>
-              <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem', lineHeight: 1.5, marginBottom: '1.5rem', flex: 1 }}>{reward.description}</p>
-              
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 'auto' }}>
-                <div>
-                  <span style={{ display: 'block', fontSize: '0.75rem', color: 'var(--text-muted)', textTransform: 'uppercase', fontWeight: '600' }}>Biaya</span>
-                  <span style={{ fontSize: '1.4rem', fontWeight: '800', color: 'var(--primary)' }}>{reward.points.toLocaleString()} <span style={{ fontSize: '0.9rem', fontWeight: '600' }}>Poin</span></span>
-                </div>
-                
-                <button 
-                  onClick={() => handleRedeem(reward)}
-                  disabled={redeeming === reward.id || points < reward.points}
-                  style={{ 
-                    padding: '0.7rem 1.2rem', 
-                    borderRadius: '12px', 
-                    border: 'none', 
-                    background: points < reward.points ? '#f1f5f9' : 'var(--primary)', 
-                    color: points < reward.points ? '#94a3b8' : 'white',
-                    fontWeight: '700',
-                    cursor: points < reward.points ? 'not-allowed' : 'pointer',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '0.5rem',
-                    transition: 'all 0.2s'
-                  }}
-                >
-                  {redeeming === reward.id ? (
-                    <>
-                      <div style={{ width: '16px', height: '16px', border: '2px solid white', borderTop: '2px solid transparent', borderRadius: '50%', animation: 'spin 0.6s linear infinite' }}></div>
-                      Proses...
-                    </>
-                  ) : points < reward.points ? 'Poin Kurang' : 'Tukarkan'}
-                </button>
-              </div>
-            </div>
-          </div>
-        ))}
+          <ArrowLeft size={18} /> Kembali
+        </Link>
       </div>
 
-      <style>{`
-        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
-      `}</style>
+      <div className="grid-3" style={{ gridTemplateColumns: '1.2fr 1.8fr', gap: '2.5rem' }}>
+        
+        {/* Left Column: Info & Stats */}
+        <aside>
+          <div className="card" style={{ padding: '2rem', marginBottom: '2rem', border: '1px solid var(--border)', background: '#fff' }}>
+            <p style={{ fontSize: '0.85rem', fontWeight: '700', color: 'var(--text-muted)', textTransform: 'uppercase', marginBottom: '1.5rem', letterSpacing: '1px' }}>Informasi Poin Anda</p>
+            
+            <div style={{ display: 'flex', alignItems: 'center', gap: '1.5rem', marginBottom: '2rem' }}>
+              <div style={{ background: 'var(--primary)', color: 'white', padding: '1rem', borderRadius: '16px' }}>
+                <Wallet size={32} />
+              </div>
+              <div>
+                <span style={{ fontSize: '2.5rem', fontWeight: '900', color: 'var(--text)' }}>{points.toLocaleString()}</span>
+                <span style={{ fontSize: '1rem', fontWeight: '700', color: 'var(--primary)', marginLeft: '0.5rem' }}>PTS</span>
+              </div>
+            </div>
+
+            <div style={{ padding: '1.5rem', background: 'var(--primary-light)', borderRadius: '16px', color: 'var(--primary-dark)', marginBottom: '1.5rem' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '0.5rem' }}>
+                <ShieldCheck size={20} />
+                <span style={{ fontWeight: '700' }}>Status: Warga Aktif</span>
+              </div>
+              <p style={{ fontSize: '0.85rem', opacity: 0.8 }}>Anda memenuhi syarat untuk menukarkan poin dengan reward apa pun di katalog.</p>
+            </div>
+          </div>
+
+          <div className="card" style={{ padding: '2rem', background: '#f8fafc', border: '1px solid var(--border)' }}>
+            <h3 style={{ fontSize: '1.2rem', fontWeight: '800', marginBottom: '1.5rem', display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+              <Info size={20} color="var(--primary)" /> Panduan Penukaran
+            </h3>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+              {[
+                'Pilih barang yang tersedia di katalog.',
+                'Pastikan saldo poin mencukupi biaya penukaran.',
+                'Klik "Tukar Sekarang" dan konfirmasi.',
+                'Tunjukkan bukti penukaran ke petugas TPS terdekat.',
+                'Ambil barang reward Anda di lokasi.'
+              ].map((step, i) => (
+                <div key={i} style={{ display: 'flex', gap: '1rem' }}>
+                  <div style={{ width: '24px', height: '24px', background: 'white', border: '2px solid var(--primary)', color: 'var(--primary)', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.75rem', fontWeight: '800', flexShrink: 0 }}>
+                    {i + 1}
+                  </div>
+                  <p style={{ fontSize: '0.9rem', color: 'var(--text-muted)', lineHeight: '1.4' }}>{step}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+        </aside>
+
+        {/* Right Column: Catalog List */}
+        <div>
+          {message && (
+            <div style={{ 
+              marginBottom: '2rem', 
+              padding: '1.5rem', 
+              borderRadius: '16px', 
+              background: message.type === 'success' ? '#ecfdf5' : '#fef2f2',
+              border: `1px solid ${message.type === 'success' ? '#10b981' : '#ef4444'}`,
+              color: message.type === 'success' ? '#065f46' : '#991b1b',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '1rem',
+              fontWeight: '600'
+            }}>
+              {message.type === 'success' ? <CheckCircle size={24} /> : <AlertCircle size={24} />}
+              {message.text}
+            </div>
+          )}
+
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+            {rewards.map(reward => (
+              <div key={reward.id} style={{ 
+                background: 'white',
+                borderRadius: '20px',
+                border: '1px solid var(--border)',
+                overflow: 'hidden',
+                display: 'flex',
+                height: reward.imageUrl ? '180px' : 'auto',
+                minHeight: reward.imageUrl ? '180px' : '140px',
+                transition: 'all 0.3s ease',
+                boxShadow: '0 4px 12px rgba(0,0,0,0.03)'
+              }}>
+                {reward.imageUrl && (
+                  <div style={{ width: '240px', position: 'relative', flexShrink: 0 }}>
+                    <img src={reward.imageUrl} alt={reward.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                    <div style={{ position: 'absolute', bottom: '1rem', left: '1rem', background: 'var(--primary)', color: 'white', padding: '0.4rem 0.8rem', borderRadius: '8px', fontSize: '0.7rem', fontWeight: '700' }}>
+                      {reward.category}
+                    </div>
+                  </div>
+                )}
+
+                <div style={{ padding: reward.imageUrl ? '1.5rem 2.5rem' : '2rem 2.5rem', flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '0.5rem' }}>
+                    <div>
+                      {!reward.imageUrl && (
+                        <span style={{ background: 'var(--primary-light)', color: 'var(--primary-dark)', padding: '0.3rem 0.7rem', borderRadius: '8px', fontSize: '0.7rem', fontWeight: '800', display: 'inline-block', marginBottom: '0.5rem' }}>
+                          {reward.category}
+                        </span>
+                      )}
+                      <h3 style={{ fontSize: '1.4rem', fontWeight: '800', color: 'var(--text)' }}>{reward.name}</h3>
+                    </div>
+                    <div style={{ textAlign: 'right' }}>
+                      <span style={{ fontSize: '1.5rem', fontWeight: '900', color: 'var(--primary)' }}>{reward.points?.toLocaleString()}</span>
+                      <span style={{ fontSize: '0.8rem', fontWeight: '700', color: 'var(--text-muted)', marginLeft: '0.25rem' }}>PTS</span>
+                    </div>
+                  </div>
+                  
+                  <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem', marginBottom: '1.5rem', display: '-webkit-box', WebkitLineClamp: '2', WebkitBoxOrient: 'vertical', overflow: 'hidden', lineHeight: '1.5' }}>
+                    {reward.description || 'Barang reward resmi dari pengelola TPS Wilayah.'}
+                  </p>
+
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                    <div style={{ fontSize: '0.85rem', color: 'var(--text-muted)', fontWeight: '600' }}>
+                      Stok: <span style={{ color: reward.stock > 0 ? 'var(--text)' : 'var(--danger)' }}>{reward.stock} unit tersedia</span>
+                    </div>
+                    <button 
+                      onClick={() => handleRedeem(reward)}
+                      disabled={points < reward.points || reward.stock <= 0}
+                      style={{ 
+                        padding: '0.75rem 1.5rem', 
+                        borderRadius: '12px', 
+                        border: 'none', 
+                        background: points >= reward.points && reward.stock > 0 ? 'var(--primary)' : '#f1f5f9',
+                        color: points >= reward.points && reward.stock > 0 ? 'white' : '#94a3b8',
+                        fontWeight: '800',
+                        cursor: points >= reward.points && reward.stock > 0 ? 'pointer' : 'not-allowed',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '0.5rem'
+                      }}
+                    >
+                      {redeeming === reward.id ? 'Memproses...' : 'Tukar Sekarang'} <ChevronRight size={18} />
+                    </button>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+          
+          {rewards.length === 0 && (
+            <div style={{ textAlign: 'center', padding: '5rem', background: '#f8fafc', borderRadius: '24px', border: '2px dashed var(--border)' }}>
+              <Gift size={48} style={{ opacity: 0.2, marginBottom: '1rem' }} />
+              <p style={{ color: 'var(--text-muted)', fontWeight: '600' }}>Belum ada reward tersedia saat ini.</p>
+            </div>
+          )}
+        </div>
+      </div>
     </div>
   );
 };

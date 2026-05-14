@@ -1,330 +1,319 @@
 import React, { useState, useEffect } from 'react';
-import { Leaf, Award, MessageSquare, History, PlusCircle, ArrowRight, MapPin, Gift } from 'lucide-react';
+import { 
+  Award, 
+  Trash2, 
+  TrendingUp, 
+  Calendar, 
+  MapPin, 
+  Activity, 
+  Sparkles, 
+  Leaf, 
+  ArrowRight,
+  Gift,
+  CheckCircle,
+  PlusCircle,
+  Clock
+} from 'lucide-react';
 import { Link } from 'react-router-dom';
-import RecommendationCard from '../components/RecommendationCard';
 import FeedbackForm from '../components/FeedbackForm';
 import wasteService from '../services/waste.service';
 import authService from '../services/auth.service';
+import rewardService from '../services/reward.service';
 import { formatCategory } from '../utils/formatters';
 
 const UserDashboard = () => {
   const [history, setHistory] = useState([]);
-  const [allHistory, setAllHistory] = useState([]); // Store original data
   const [locations, setLocations] = useState([]);
+  const [rewards, setRewards] = useState([]);
   const [selectedTpsId, setSelectedTpsId] = useState('');
   const [recommendation, setRecommendation] = useState('');
+  const [globalPoints, setGlobalPoints] = useState(0);
   const [loading, setLoading] = useState(true);
-  const currentUser = authService.getCurrentUser() || {};
+
+  const currentUser = authService.getCurrentUser();
   const userId = currentUser?.id;
 
   useEffect(() => {
     const fetchInitialData = async () => {
       try {
-        // Fetch Locations
-        const locRes = await wasteService.getLocations();
-        const locs = Array.isArray(locRes?.data) ? locRes.data : [];
+        setLoading(true);
+        const resLoc = await wasteService.getLocations();
+        const locs = resLoc.data || [];
         setLocations(locs);
+        
         if (locs.length > 0 && !selectedTpsId) {
-          setSelectedTpsId(currentUser?.locationId || locs[0].id.toString());
+          setSelectedTpsId(locs[0].id.toString());
         }
 
-        // Fetch Recommendations
+        // Fetch Global Points (Deposits - Redemptions)
+        const resDeposits = await wasteService.getDepositsByUser(userId);
+        const depositData = Array.isArray(resDeposits.data) ? resDeposits.data : [];
+        setHistory(depositData);
+        
+        const totalEarned = depositData.length > 0 
+          ? depositData.reduce((acc, curr) => acc + (curr.points || 0), 0)
+          : 0;
+
+        const resRedemptions = await rewardService.getUserRedemptions(userId);
+        const redemptionData = Array.isArray(resRedemptions.data) ? resRedemptions.data : [];
+        const totalSpent = redemptionData.reduce((acc, curr) => acc + (curr.pointsUsed || 0), 0);
+
+        setGlobalPoints(totalEarned - totalSpent);
+
+        // Fetch Real Rewards
+        const resRewards = await rewardService.getRewards();
+        setRewards(Array.isArray(resRewards.data) ? resRewards.data : []);
+
         const recRes = await wasteService.getRecommendations(userId);
         setRecommendation(recRes?.data?.recommendation || "Belum ada rekomendasi.");
       } catch (err) {
-        console.error("Error fetching initial data", err);
-      }
-    };
-
-    if (userId) fetchInitialData();
-  }, [userId]);
-
-  // Fetch history whenever selectedTpsId changes
-  useEffect(() => {
-    const fetchTpsData = async () => {
-      if (!selectedTpsId) {
-        console.log("No TPS ID selected yet.");
-        return;
-      }
-
-      try {
-        console.log("Fetching history for TPS ID:", selectedTpsId);
-        setLoading(true);
-        const historyRes = await wasteService.getDepositsByLocation(selectedTpsId);
-        console.log("History received:", historyRes?.data);
-        const data = Array.isArray(historyRes?.data) ? historyRes.data : [];
-        setHistory(data);
-      } catch (err) {
-        console.error("Error fetching TPS history", err);
-        setHistory([]);
+        console.error("Error fetching initial dashboard data", err);
       } finally {
         setLoading(false);
       }
     };
 
-    fetchTpsData();
-  }, [selectedTpsId]);
+    fetchInitialData();
+  }, [userId]);
 
-  const totalPoints = Array.isArray(history) ? history.reduce((acc, curr) => acc + (curr.points || 0), 0) : 0;
-  const currentTpsName = locations.find(l => l.id.toString() === selectedTpsId.toString())?.namaLokasi || 'Wilayah';
+  const totalPoints = globalPoints;
+  const currentTps = locations.find(l => l.id.toString() === selectedTpsId.toString());
+  const currentTpsName = currentTps?.namaLokasi || 'Wilayah';
 
-  if (loading) return (
+  const getDefaultImage = (category) => {
+    switch (category) {
+      case 'Voucher': return 'https://images.unsplash.com/photo-1626000289354-944415891398?w=500';
+      case 'Logistik': return 'https://images.unsplash.com/photo-1586528116311-ad8dd3c8310d?w=500';
+      case 'Peralatan': return 'https://images.unsplash.com/photo-1581244277943-fe4a9c777189?w=500';
+      case 'Pertanian': return 'https://images.unsplash.com/photo-1615811361523-6bd03d7748e7?w=500';
+      default: return 'https://images.unsplash.com/photo-1513519245088-0e12902e5a38?w=500';
+    }
+  };
+
+  if (loading && history.length === 0) return (
     <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '80vh' }}>
-      <div style={{ textAlign: 'center', color: 'var(--text-muted)' }}>
-        <div style={{ width: '40px', height: '40px', border: '4px solid var(--primary-light)', borderTop: '4px solid var(--primary)', borderRadius: '50%', animation: 'spin 1s linear infinite', margin: '0 auto 1rem auto' }}></div>
-        <p style={{ fontWeight: '500' }}>Memuat Dashboard Warga...</p>
+      <div style={{ textAlign: 'center' }}>
+        <div className="spinner" style={{ 
+          width: '50px', 
+          height: '50px', 
+          border: '5px solid var(--primary-light)', 
+          borderTop: '5px solid var(--primary)', 
+          borderRadius: '50%', 
+          animation: 'spin 1s cubic-bezier(0.4, 0, 0.2, 1) infinite',
+          margin: '0 auto 1.5rem auto' 
+        }}></div>
+        <p style={{ fontWeight: '600', color: 'var(--text-muted)' }}>Menyiapkan Dashboard Anda...</p>
         <style>{`@keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }`}</style>
       </div>
     </div>
   );
 
   return (
-    <div className="container fade-in" style={{ padding: '2rem' }}>
-
-      {/* Header Section */}
-      <div style={{
-        display: 'flex',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        marginBottom: '2.5rem',
-        background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
-        padding: '2.5rem',
-        borderRadius: '24px',
-        boxShadow: '0 10px 25px rgba(16, 185, 129, 0.2)',
-        color: 'white',
-        flexWrap: 'wrap',
-        gap: '1.5rem',
-        position: 'relative',
-        overflow: 'hidden'
+    <div className="container fade-in" style={{ padding: '2rem', paddingBottom: '5rem' }}>
+      
+      {/* Admin-style Header Section */}
+      <div style={{ 
+        display: 'flex', 
+        justifyContent: 'space-between', 
+        alignItems: 'flex-end', 
+        marginBottom: '3.5rem',
+        padding: '1rem 0.5rem 0 0.5rem'
       }}>
-        <div style={{ position: 'absolute', right: '-20px', bottom: '-20px', opacity: 0.1 }}>
-          <Leaf size={150} color="white" />
-        </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '1.5rem', position: 'relative', zIndex: 1 }}>
-          <div style={{ background: 'rgba(255,255,255,0.2)', padding: '1.2rem', borderRadius: '20px', backdropFilter: 'blur(10px)' }}>
-            <MapPin size={40} color="white" />
+        <div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '0.5rem' }}>
+            <div style={{ background: 'var(--primary)', color: 'white', padding: '0.5rem', borderRadius: '12px' }}>
+              <TrendingUp size={20} />
+            </div>
+            <span style={{ fontWeight: '700', color: 'var(--primary)', fontSize: '0.9rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+              Warga Dashboard
+            </span>
           </div>
+          <h1 style={{ fontSize: '2.5rem', fontWeight: '800', color: 'var(--text)', letterSpacing: '-0.02em' }}>
+            Dashboard <span style={{ color: 'var(--primary)' }}>Warga</span>
+          </h1>
+          <p style={{ color: 'var(--text-muted)', marginTop: '0.5rem', fontSize: '1.1rem' }}>Selamat datang, <b>{currentUser?.namaLengkap}</b>. Pantau kontribusi Anda.</p>
+        </div>
+      </div>
+
+      {/* Poin & Quick Action Section */}
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 240px', gap: '2rem', marginBottom: '4rem' }}>
+        <div className="card" style={{ background: 'linear-gradient(135deg, var(--primary) 0%, #10b981 100%)', color: 'white', border: 'none', padding: '2.5rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <div>
-            <h1 style={{ fontSize: '2.4rem', fontWeight: '800', marginBottom: '0.25rem', color: 'white' }}>Panel TPS {currentTpsName}</h1>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginTop: '0.5rem' }}>
-              <span style={{ color: 'rgba(255,255,255,0.8)', fontSize: '0.9rem', fontWeight: '500' }}>Pilih Wilayah TPS:</span>
-              <select
-                value={selectedTpsId}
-                onChange={(e) => setSelectedTpsId(e.target.value)}
-                style={{
-                  background: 'rgba(255,255,255,0.2)',
-                  border: '1px solid rgba(255,255,255,0.3)',
-                  borderRadius: '10px',
-                  color: 'white',
-                  padding: '0.4rem 0.8rem',
-                  fontSize: '0.9rem',
-                  fontWeight: '600',
-                  outline: 'none',
-                  cursor: 'pointer'
-                }}
-              >
-                {locations.map(loc => (
-                  <option key={loc.id} value={loc.id} style={{ color: 'black' }}>{loc.namaLokasi}</option>
-                ))}
-              </select>
+            <p style={{ opacity: 0.8, fontSize: '0.9rem', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '1px' }}>Total Poin Saya</p>
+            <h2 style={{ fontSize: '3.5rem', fontWeight: '900', margin: '0.5rem 0' }}>{globalPoints.toLocaleString()} <span style={{ fontSize: '1.2rem', fontWeight: '600', opacity: 0.8 }}>PTS</span></h2>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '1rem', background: 'rgba(255,255,255,0.15)', padding: '0.5rem 1rem', borderRadius: '10px', display: 'inline-flex' }}>
+              <CheckCircle size={18} /> <span>Poin Terverifikasi</span>
             </div>
           </div>
+          <div style={{ background: 'rgba(255,255,255,0.2)', padding: '1.5rem', borderRadius: '24px' }}>
+            <Award size={48} />
+          </div>
         </div>
-        <div style={{ display: 'flex', gap: '1rem', position: 'relative', zIndex: 1 }}>
-          <Link to="/setor" style={{ textDecoration: 'none' }}>
-            <button style={{
-              padding: '0.9rem 1.8rem',
-              background: 'white',
-              color: 'var(--primary)',
-              borderRadius: '14px',
-              border: 'none',
-              fontWeight: '700',
-              fontSize: '1rem',
-              cursor: 'pointer',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '0.6rem',
-              boxShadow: '0 4px 15px rgba(0, 0, 0, 0.1)',
-              transition: 'all 0.3s'
-            }} onMouseOver={(e) => { e.currentTarget.style.transform = 'translateY(-3px)'; e.currentTarget.style.boxShadow = '0 8px 20px rgba(0,0,0,0.15)'; }} onMouseOut={(e) => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = '0 4px 15px rgba(0,0,0,0.1)'; }}>
-              <PlusCircle size={22} /> Setor Sampah
-            </button>
+
+        <Link to="/setor" style={{ textDecoration: 'none' }}>
+          <div className="card" style={{ 
+            height: '100%', 
+            background: 'white', 
+            border: '2px solid var(--primary)', 
+            display: 'flex', 
+            flexDirection: 'column', 
+            alignItems: 'center', 
+            justifyContent: 'center', 
+            gap: '0.75rem',
+            padding: '1.5rem',
+            cursor: 'pointer',
+            transition: 'all 0.3s'
+          }} onMouseOver={(e) => {
+            e.currentTarget.style.background = 'var(--primary-light)';
+          }} onMouseOut={(e) => {
+            e.currentTarget.style.background = 'white';
+          }}>
+            <div style={{ background: 'var(--primary)', color: 'white', padding: '0.75rem', borderRadius: '50%' }}>
+              <PlusCircle size={24} />
+            </div>
+            <span style={{ fontWeight: '800', color: 'var(--primary)', fontSize: '0.95rem', textAlign: 'center', lineHeight: 1.2 }}>Mulai Setor<br/>Sampah</span>
+          </div>
+        </Link>
+      </div>
+
+      {/* Smaller Insights Area */}
+      <section style={{ marginBottom: '5rem' }}>
+        <div style={{ 
+          background: '#f8fafc', 
+          border: '1px solid var(--border)', 
+          padding: '1.5rem 2rem',
+          borderRadius: '20px',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '1.5rem'
+        }}>
+          <div style={{ background: 'var(--secondary-light)', padding: '0.6rem', borderRadius: '12px', color: 'var(--secondary)' }}>
+            <Sparkles size={20} />
+          </div>
+          <div style={{ flex: 1 }}>
+            <span style={{ fontSize: '0.8rem', fontWeight: '700', color: 'var(--text-muted)', textTransform: 'uppercase' }}>Wawasan Wilayah</span>
+            <p style={{ fontSize: '1.05rem', color: 'var(--text)', fontWeight: '500', marginTop: '0.2rem' }}>
+              "{recommendation}"
+            </p>
+          </div>
+          <div style={{ color: 'var(--primary)', opacity: 0.3 }}>
+            <Leaf size={32} />
+          </div>
+        </div>
+      </section>
+
+      {/* Rewards Section */}
+      <section style={{ marginBottom: '5rem' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2.5rem' }}>
+          <div>
+            <h2 style={{ fontSize: '2rem', fontWeight: '800', display: 'flex', alignItems: 'center', gap: '1rem' }}>
+              <Gift size={36} color="var(--primary)" /> Katalog Reward Populer
+            </h2>
+            <p style={{ color: 'var(--text-muted)', marginTop: '0.5rem', fontWeight: '500' }}>Tukarkan poin kolektif warga untuk manfaat bersama</p>
+          </div>
+          <Link to="/tukar-poin" className="btn btn-outline" style={{ borderRadius: '12px' }}>
+            Lihat Semua <ArrowRight size={18} />
           </Link>
         </div>
-      </div>
 
-      {/* Top Stats */}
-      <div className="grid-3" style={{ marginBottom: '3rem', gap: '2rem' }}>
-        <div className="card glass-card" style={{
-          gridColumn: 'span 2',
-          border: '1px solid var(--border)',
-          background: '#ffffff',
-          borderRadius: '24px',
-          boxShadow: '0 4px 20px rgba(0,0,0,0.02)',
-          padding: '2.5rem',
-          display: 'flex',
-          flexDirection: 'column'
-        }}>
-          <h3 style={{ marginBottom: '1.5rem', color: 'var(--text)', display: 'flex', alignItems: 'center', gap: '0.75rem', fontSize: '1.4rem' }}>
-            <span role="img" aria-label="light">💡</span> Rekomendasi Pengelolaan TPS
-          </h3>
-          <RecommendationCard message={recommendation} />
-        </div>
-
-        <div className="card" style={{
-          display: 'flex',
-          flexDirection: 'column',
-          alignItems: 'center',
-          justifyContent: 'center',
-          background: 'linear-gradient(135deg, #1e293b 0%, #0f172a 100%)',
-          color: 'white',
-          border: 'none',
-          borderRadius: '24px',
-          boxShadow: '0 10px 30px rgba(0,0,0,0.1)',
-          padding: '2.5rem',
-          textAlign: 'center'
-        }}>
-          <div style={{ background: 'rgba(255,255,255,0.1)', padding: '1.2rem', borderRadius: '50%', marginBottom: '1.5rem' }}>
-            <Award size={48} color="#fbbf24" />
-          </div>
-          <h3 style={{ opacity: 0.7, fontWeight: '500', fontSize: '1rem', textTransform: 'uppercase', letterSpacing: '1px' }}>Saldo Poin TPS</h3>
-          <h1 style={{ color: 'white', fontSize: '4rem', fontWeight: '900', margin: '0.5rem 0', lineHeight: 1 }}>{totalPoints}</h1>
-          <div style={{ marginTop: '1rem', padding: '0.5rem 1rem', background: 'rgba(16, 185, 129, 0.2)', borderRadius: '99px', color: '#34d399', fontWeight: '700', fontSize: '0.9rem' }}>
-            Siap Ditukarkan
-          </div>
-        </div>
-      </div>
-
-      {/* Reward Section - The New "Kolom Penukaran" */}
-      <div style={{ marginBottom: '4rem' }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem' }}>
-          <h2 style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', fontSize: '1.8rem', fontWeight: '800' }}>
-            <Gift size={32} color="var(--primary)" /> Katalog Reward TPS
-          </h2>
-          <span style={{ color: 'var(--text-muted)', fontWeight: '500' }}>Tukarkan poin kolektif warga di sini</span>
-        </div>
-
-        <div style={{
-          display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))',
-          gap: '2rem'
-        }}>
-          {/* Placeholder Rewards */}
-          {[
-            { id: 1, name: 'Voucher Listrik 50rb', pts: 5000, img: 'https://images.unsplash.com/photo-1473341304170-971dccb5ac1e?w=300' },
-            { id: 2, name: 'Paket Sembako Wilayah', pts: 7500, img: 'https://images.unsplash.com/photo-1542838132-92c53300491e?w=300' },
-            { id: 3, name: 'Peralatan Kebersihan', pts: 3000, img: 'https://images.unsplash.com/photo-1584622650111-993a426fbf0a?w=300' }
-          ].map(reward => (
-            <div key={reward.id} className="card" style={{
-              padding: '0',
-              borderRadius: '20px',
-              overflow: 'hidden',
-              border: '1px solid var(--border)',
-              transition: 'transform 0.3s'
-            }} onMouseOver={(e) => e.currentTarget.style.transform = 'translateY(-8px)'} onMouseOut={(e) => e.currentTarget.style.transform = 'translateY(0)'}>
-              <img src={reward.img} alt={reward.name} style={{ width: '100%', height: '140px', objectFit: 'cover' }} />
-              <div style={{ padding: '1.5rem' }}>
-                <h4 style={{ fontWeight: '700', marginBottom: '0.5rem' }}>{reward.name}</h4>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '1rem' }}>
-                  <span style={{ color: 'var(--primary)', fontWeight: '800', fontSize: '1.1rem' }}>{reward.pts} Pts</span>
-                  <button style={{
-                    padding: '0.5rem 1rem',
-                    borderRadius: '10px',
-                    border: 'none',
-                    background: totalPoints >= reward.pts ? 'var(--primary)' : '#f1f5f9',
-                    color: totalPoints >= reward.pts ? 'white' : '#94a3b8',
-                    fontWeight: '700',
-                    cursor: totalPoints >= reward.pts ? 'pointer' : 'not-allowed'
-                  }}>
-                    Tukar
-                  </button>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: '2rem' }}>
+          {rewards.slice(0, 3).map(reward => (
+            <div key={reward.id} className="card" style={{ padding: 0, overflow: 'hidden', border: '1px solid var(--border)', display: 'flex', flexDirection: 'column' }}>
+              {reward.imageUrl && (
+                <div style={{ position: 'relative' }}>
+                  <img src={reward.imageUrl} alt={reward.name} style={{ width: '100%', height: '160px', objectFit: 'cover' }} />
+                  <div style={{ position: 'absolute', top: '1rem', right: '1rem', background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(8px)', color: 'white', padding: '0.4rem 0.8rem', borderRadius: '10px', fontSize: '0.75rem', fontWeight: '700' }}>
+                    {reward.category}
+                  </div>
+                </div>
+              )}
+              <div style={{ padding: '1.5rem', flex: 1, display: 'flex', flexDirection: 'column' }}>
+                {!reward.imageUrl && (
+                  <span style={{ background: 'var(--primary-light)', color: 'var(--primary-dark)', padding: '0.2rem 0.6rem', borderRadius: '6px', fontSize: '0.65rem', fontWeight: '800', display: 'inline-block', marginBottom: '0.5rem', alignSelf: 'flex-start' }}>
+                    {reward.category}
+                  </span>
+                )}
+                <h3 style={{ fontSize: '1.1rem', fontWeight: '800', marginBottom: '0.5rem' }}>{reward.name}</h3>
+                <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem', marginBottom: '1.5rem', display: '-webkit-box', WebkitLineClamp: '2', WebkitBoxOrient: 'vertical', overflow: 'hidden', flex: 1 }}>
+                  {reward.description || 'Tukarkan poin Anda dengan reward menarik ini.'}
+                </p>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <div>
+                    <span style={{ fontSize: '1.2rem', fontWeight: '900', color: 'var(--primary)' }}>{reward.points}</span>
+                    <span style={{ fontSize: '0.75rem', fontWeight: '700', color: 'var(--text-muted)', marginLeft: '0.2rem' }}>PTS</span>
+                  </div>
+                  <Link to="/tukar-poin">
+                    <button className="btn" style={{ 
+                      padding: '0.5rem 1rem', 
+                      borderRadius: '10px',
+                      background: globalPoints >= (reward.points || 0) ? 'var(--primary)' : '#f1f5f9',
+                      color: globalPoints >= (reward.points || 0) ? 'white' : '#94a3b8',
+                      cursor: globalPoints >= (reward.points || 0) ? 'pointer' : 'not-allowed',
+                      border: 'none',
+                      fontWeight: '700',
+                      fontSize: '0.85rem'
+                    }}>
+                      Tukar
+                    </button>
+                  </Link>
                 </div>
               </div>
             </div>
           ))}
-          <Link to="/tukar-poin" style={{
-            textDecoration: 'none',
-            display: 'flex',
-            flexDirection: 'column',
-            alignItems: 'center',
-            justifyContent: 'center',
-            background: '#f8fafc',
-            borderRadius: '20px',
-            border: '2px dashed var(--border)',
-            gap: '1rem',
-            color: 'var(--text-muted)',
-            fontWeight: '600',
-            transition: 'all 0.3s'
-          }} onMouseOver={(e) => { e.currentTarget.style.background = '#f1f5f9'; e.currentTarget.style.borderColor = 'var(--primary)'; }} onMouseOut={(e) => { e.currentTarget.style.background = '#f8fafc'; e.currentTarget.style.borderColor = 'var(--border)'; }}>
-            <div style={{ background: 'white', padding: '1rem', borderRadius: '50%', boxShadow: '0 4px 10px rgba(0,0,0,0.05)' }}>
-              <ArrowRight size={24} color="var(--primary)" />
-            </div>
-            Lihat Semua Reward
-          </Link>
         </div>
-      </div>
+      </section>
 
-      {/* Main Content Areas */}
-      <div className="grid-2" style={{ gap: '2.5rem' }}>
-
-        {/* Deposit History */}
-        <div>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
-            <h2 style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', fontSize: '1.5rem', fontWeight: '700' }}>
-              <History size={24} color="var(--primary)" /> Riwayat TPS
+      {/* Main Content: History & Feedback */}
+      <div className="grid-2" style={{ gap: '3rem', gridTemplateColumns: '1.5fr 1fr' }}>
+        
+        {/* History Section */}
+        <section>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem' }}>
+            <h2 style={{ fontSize: '1.8rem', fontWeight: '800', display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+              <Clock size={28} color="var(--primary)" /> Riwayat Kontribusi
             </h2>
           </div>
-          <div className="card" style={{ padding: '0', background: '#ffffff', borderRadius: '20px', overflow: 'hidden', border: '1px solid var(--border)', boxShadow: '0 4px 20px rgba(0,0,0,0.02)' }}>
-            <div className="table-container">
-              <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-                <thead style={{ background: '#f8fafc', borderBottom: '1px solid var(--border)' }}>
-                  <tr>
-                    <th style={{ padding: '1.2rem 1.5rem', textAlign: 'left', color: 'var(--text-muted)', fontWeight: '600', fontSize: '0.85rem', textTransform: 'uppercase' }}>Tanggal</th>
-                    <th style={{ padding: '1.2rem 1.5rem', textAlign: 'left', color: 'var(--text-muted)', fontWeight: '600', fontSize: '0.85rem', textTransform: 'uppercase' }}>Sampah</th>
-                    <th style={{ padding: '1.2rem 1.5rem', textAlign: 'left', color: 'var(--text-muted)', fontWeight: '600', fontSize: '0.85rem', textTransform: 'uppercase' }}>Berat</th>
-                    <th style={{ padding: '1.2rem 1.5rem', textAlign: 'left', color: 'var(--text-muted)', fontWeight: '600', fontSize: '0.85rem', textTransform: 'uppercase' }}>Poin</th>
+          
+          <div className="card table-container" style={{ padding: 0, overflow: 'hidden', border: '1px solid var(--border)' }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+              <thead style={{ background: '#f8fafc', borderBottom: '1px solid var(--border)' }}>
+                <tr>
+                  <th style={{ padding: '1rem 1.5rem', textAlign: 'left', fontSize: '0.8rem', color: 'var(--text-muted)', textTransform: 'uppercase' }}>Kategori</th>
+                  <th style={{ padding: '1rem 1.5rem', textAlign: 'left', fontSize: '0.8rem', color: 'var(--text-muted)', textTransform: 'uppercase' }}>Berat</th>
+                  <th style={{ padding: '1rem 1.5rem', textAlign: 'left', fontSize: '0.8rem', color: 'var(--text-muted)', textTransform: 'uppercase' }}>Poin</th>
+                  <th style={{ padding: '1rem 1.5rem', textAlign: 'left', fontSize: '0.8rem', color: 'var(--text-muted)', textTransform: 'uppercase' }}>Waktu</th>
+                </tr>
+              </thead>
+              <tbody>
+                {history.length > 0 ? history.map((item, idx) => (
+                  <tr key={idx} style={{ borderBottom: idx === history.length - 1 ? 'none' : '1px solid var(--border)' }}>
+                    <td style={{ padding: '1rem 1.5rem' }}>
+                      <span className="badge badge-primary">{formatCategory(item.category?.namaKategori || 'Umum')}</span>
+                    </td>
+                    <td style={{ padding: '1rem 1.5rem', fontWeight: '700' }}>{item.berat} kg</td>
+                    <td style={{ padding: '1rem 1.5rem', fontWeight: '800', color: 'var(--primary)' }}>+{item.points}</td>
+                    <td style={{ padding: '1rem 1.5rem', color: 'var(--text-muted)', fontSize: '0.9rem' }}>
+                      {item.createdAt ? new Date(item.createdAt).toLocaleDateString('id-ID') : new Date(item.tanggal).toLocaleDateString('id-ID')}
+                    </td>
                   </tr>
-                </thead>
-                <tbody>
-                  {history.length > 0 ? history.map(item => (
-                    <tr key={item.id} style={{ borderBottom: '1px solid var(--border)', transition: 'background 0.2s' }} onMouseOver={(e) => e.currentTarget.style.background = '#f8fafc'} onMouseOut={(e) => e.currentTarget.style.background = 'transparent'}>
-                      <td style={{ padding: '1.2rem 1.5rem', fontSize: '0.9rem', color: 'var(--text)' }}>
-                        {new Date(item.tanggal).toLocaleDateString('id-ID', { day: 'numeric', month: 'short' })}
-                      </td>
-                      <td style={{ padding: '1.2rem 1.5rem' }}>
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
-                          <span style={{ fontWeight: '700', color: 'var(--text)', fontSize: '0.95rem' }}>{item.namaSampah || 'Tanpa Nama'}</span>
-                          <span style={{ color: 'var(--primary)', fontSize: '0.75rem', fontWeight: '600', textTransform: 'uppercase' }}>
-                            {formatCategory(item.category?.namaKategori) || 'Umum'}
-                          </span>
-                        </div>
-                      </td>
-                      <td style={{ padding: '1.2rem 1.5rem', fontWeight: '500' }}>{item.berat} kg</td>
-                      <td style={{ padding: '1.2rem 1.5rem', fontWeight: '700', color: 'var(--primary)' }}>+{item.points}</td>
-                    </tr>
-                  )) : (
-                    <tr>
-                      <td colSpan="4" style={{ textAlign: 'center', padding: '4rem', color: 'var(--text-muted)' }}>Belum ada setoran wilayah.</td>
-                    </tr>
-                  )}
-                </tbody>
-              </table>
-            </div>
+                )) : (
+                  <tr>
+                    <td colSpan="4" style={{ textAlign: 'center', padding: '3rem', color: 'var(--text-muted)' }}>Belum ada riwayat kontribusi.</td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
           </div>
-        </div>
+        </section>
 
         {/* Feedback Section */}
-        <div>
-          <h2 style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '1.5rem', fontSize: '1.5rem', fontWeight: '700' }}>
-            <MessageSquare size={24} color="var(--primary)" /> Suara Warga TPS
-          </h2>
-          <div className="card" style={{ background: '#ffffff', borderRadius: '20px', padding: '2rem', border: '1px solid var(--border)', boxShadow: '0 4px 20px rgba(0,0,0,0.02)' }}>
-            <p style={{ color: 'var(--text-muted)', marginBottom: '1.5rem', fontSize: '0.95rem' }}>
-              Warga dapat mengirimkan masukan atau keluhan terkait pengelolaan sampah di wilayah TPS ini.
-            </p>
-            <FeedbackForm userId={currentUser?.id} />
+        <section>
+          <div style={{ marginBottom: '2rem' }}>
+            <h2 style={{ fontSize: '1.8rem', fontWeight: '800' }}>Masukan Warga</h2>
+            <p style={{ color: 'var(--text-muted)', marginTop: '0.5rem' }}>Bantu kami meningkatkan layanan TPS Anda.</p>
           </div>
-        </div>
+          <FeedbackForm tpsId={selectedTpsId} />
+        </section>
       </div>
     </div>
   );
