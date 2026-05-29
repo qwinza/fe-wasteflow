@@ -10,7 +10,8 @@ import {
   Info,
   ChevronRight,
   ShieldCheck,
-  Zap
+  Zap,
+  History
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import rewardService from '../services/reward.service';
@@ -127,21 +128,38 @@ const RedeemPoints = () => {
           <p style={{ color: 'var(--text-muted)', marginTop: '0.5rem', fontSize: '1.1rem' }}>Tukarkan poin hasil pengelolaan sampah dengan hadiah menarik.</p>
         </div>
 
-        <Link to="/warga" style={{ 
-          display: 'flex', 
-          alignItems: 'center', 
-          gap: '0.5rem', 
-          textDecoration: 'none', 
-          color: 'var(--text-muted)', 
-          fontWeight: '700',
-          padding: '0.8rem 1.2rem',
-          borderRadius: '14px',
-          background: 'white',
-          border: '1px solid var(--border)',
-          boxShadow: 'var(--shadow-sm)'
-        }}>
-          <ArrowLeft size={18} /> Kembali
-        </Link>
+        <div style={{ display: 'flex', gap: '0.75rem' }}>
+          <Link to="/history-redeem" style={{ 
+            display: 'flex', 
+            alignItems: 'center', 
+            gap: '0.5rem', 
+            textDecoration: 'none', 
+            color: 'var(--primary)', 
+            fontWeight: '700',
+            padding: '0.8rem 1.2rem',
+            borderRadius: '14px',
+            background: 'var(--primary-light)',
+            border: '1px solid var(--primary)',
+            boxShadow: 'var(--shadow-sm)'
+          }}>
+            <History size={18} /> History Redeem
+          </Link>
+          <Link to="/warga" style={{ 
+            display: 'flex', 
+            alignItems: 'center', 
+            gap: '0.5rem', 
+            textDecoration: 'none', 
+            color: 'var(--text-muted)', 
+            fontWeight: '700',
+            padding: '0.8rem 1.2rem',
+            borderRadius: '14px',
+            background: 'white',
+            border: '1px solid var(--border)',
+            boxShadow: 'var(--shadow-sm)'
+          }}>
+            <ArrowLeft size={18} /> Kembali
+          </Link>
+        </div>
       </div>
 
       <div className="grid-3" style={{ gridTemplateColumns: '1.2fr 1.8fr', gap: '2.5rem' }}>

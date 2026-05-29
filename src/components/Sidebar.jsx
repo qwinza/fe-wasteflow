@@ -7,7 +7,9 @@ import {
   Gift, 
   LogOut, 
   Leaf, 
-  ChevronRight
+  ChevronRight,
+  History,
+  MessageSquare
 } from 'lucide-react';
 
 const Sidebar = ({ user, logOut }) => {
@@ -18,12 +20,14 @@ const Sidebar = ({ user, logOut }) => {
     { to: "/manage-categories", icon: <Settings size={20} />, label: "Kategori" },
     { to: "/manage-locations", icon: <MapPin size={20} />, label: "Lokasi TPS" },
     { to: "/manage-rewards", icon: <Gift size={20} />, label: "Katalog Reward" },
+    { to: "/admin/reviews", icon: <MessageSquare size={20} />, label: "Review User" },
   ];
 
   const userLinks = [
     { to: "/warga", icon: <LayoutDashboard size={20} />, label: "Dashboard" },
     { to: "/setor", icon: <Leaf size={20} />, label: "Setor Sampah" },
     { to: "/tukar-poin", icon: <Gift size={20} />, label: "Tukar Poin" },
+    { to: "/history-redeem", icon: <History size={20} />, label: "History Redeem" },
   ];
 
   const activeLinks = isAdmin ? adminLinks : userLinks;

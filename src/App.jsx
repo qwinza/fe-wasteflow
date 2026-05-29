@@ -11,6 +11,8 @@ import Login from './pages/Login';
 import Register from './pages/Register';
 import RedeemPoints from './pages/RedeemPoints';
 import ManageRewards from './pages/ManageRewards';
+import RedeemHistory from './pages/RedeemHistory';
+import AdminReviews from './pages/AdminReviews';
 import authService from './services/auth.service';
 import './index.css';
 
@@ -62,6 +64,9 @@ function AppContent() {
               <Route path="/manage-locations" element={isAdmin ? <ManageLocations /> : <Navigate to="/admin" />} />
               <Route path="/manage-rewards" element={isAdmin ? <ManageRewards /> : <Navigate to="/admin" />} />
               <Route path="/tukar-poin" element={!isAdmin ? <RedeemPoints /> : <Navigate to="/admin" />} />
+              {/* New Routes */}
+              <Route path="/history-redeem" element={!isAdmin ? <RedeemHistory /> : <Navigate to="/admin" />} />
+              <Route path="/admin/reviews" element={isAdmin ? <AdminReviews /> : <Navigate to="/warga" />} />
               <Route path="*" element={<Navigate to="/" />} />
             </Routes>
             <footer style={{ textAlign: 'center', padding: '3rem 2rem', color: 'var(--text-muted)', fontSize: '0.875rem', marginTop: 'auto' }}>
