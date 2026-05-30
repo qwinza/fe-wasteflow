@@ -24,7 +24,7 @@ const OutboundForm = ({ onOutboundSuccess, locationId }) => {
         tujuanDistribusi: formData.tujuanDistribusi
       };
       // In real scenario, uncomment API call
-      // await axios.post('http://localhost:8080/api/v1/outbounds', payload);
+      // await axios.post('/api/v1/outbounds', payload);
       
       // Simulate API call
       setTimeout(() => {

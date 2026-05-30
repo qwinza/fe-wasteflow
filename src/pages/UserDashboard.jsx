@@ -20,7 +20,7 @@ const UserDashboard = () => {
 
     const fetchRecommendation = async () => {
       try {
-        const res = await axios.get(`http://localhost:8080/api/v1/recommendations/${USER_ID}`);
+        const res = await axios.get(`/api/v1/recommendations/${USER_ID}`);
         setRecommendation(res.data.recommendation);
       } catch (e) {
         setRecommendation("Anda banyak menyetor plastik, coba kurangi penggunaan botol sekali pakai.");

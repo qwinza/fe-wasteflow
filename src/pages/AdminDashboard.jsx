@@ -21,7 +21,7 @@ const AdminDashboard = () => {
       };
       
       try {
-        const res = await axios.get(`http://localhost:8080/api/v1/reports/capacity/${LOCATION_ID}`);
+        const res = await axios.get(`/api/v1/reports/capacity/${LOCATION_ID}`);
         setCapacityData(res.data);
       } catch (e) {
         console.log("Using fallback data for Admin Dashboard", e);

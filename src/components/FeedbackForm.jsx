@@ -10,7 +10,7 @@ const FeedbackForm = ({ userId }) => {
     e.preventDefault();
     setStatus('Mengirim...');
     try {
-      // await axios.post('http://localhost:8080/api/v1/feedbacks', { userId, pesan, rating });
+      // await axios.post('/api/v1/feedbacks', { userId, pesan, rating });
       setTimeout(() => {
         setStatus('Terima kasih atas masukan Anda!');
         setPesan('');
