@@ -3,10 +3,12 @@ import api from './api';
 // Categories
 const getCategories = () => api.get('/categories');
 const createCategory = (data) => api.post('/categories', data);
+const deleteCategory = (id) => api.delete(`/categories/${id}`);
 
 // Locations
 const getLocations = () => api.get('/locations');
 const createLocation = (data) => api.post('/locations', data);
+const deleteLocation = (id) => api.delete(`/locations/${id}`);
 
 // Deposits
 const createDeposit = (userId, categoryId, locationId, berat, namaSampah) => {
@@ -36,8 +38,10 @@ const createOutbound = (data) => api.post('/outbounds', data);
 const wasteService = {
   getCategories,
   createCategory,
+  deleteCategory,
   getLocations,
   createLocation,
+  deleteLocation,
   createDeposit,
   getDepositsByUser,
   getDepositsByLocation,

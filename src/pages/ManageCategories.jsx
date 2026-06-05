@@ -3,9 +3,27 @@ import { Trash2, Plus, Settings, AlertCircle, CheckCircle } from 'lucide-react';
 import wasteService from '../services/waste.service';
 import { formatCategory } from '../utils/formatters';
 
+const formatWasteType = (type) => {
+  switch (type) {
+    case 'ORGANIC': return 'Organik';
+    case 'INORGANIC': return 'Anorganik';
+    case 'HAZARDOUS': return 'B3 (Berbahaya)';
+    default: return type || 'Tidak Diketahui';
+  }
+};
+
+const getWasteTypeBadgeClass = (type) => {
+  switch (type) {
+    case 'ORGANIC': return 'badge-organic';
+    case 'INORGANIC': return 'badge-inorganic';
+    case 'HAZARDOUS': return 'badge-hazardous';
+    default: return 'badge-success';
+  }
+};
+
 const ManageCategories = () => {
   const [categories, setCategories] = useState([]);
-  const [newCategory, setNewCategory] = useState({ namaKategori: '', pointMultiplier: '' });
+  const [newCategory, setNewCategory] = useState({ namaKategori: '', pointMultiplier: '', wasteType: 'ORGANIC' });
   const [loading, setLoading] = useState(false);
   const [fetching, setFetching] = useState(true);
   const [status, setStatus] = useState({ type: '', message: '' });
@@ -13,7 +31,7 @@ const ManageCategories = () => {
   const fetchCategories = async () => {
     try {
       const res = await wasteService.getCategories();
-      setCategories(res.data);
+      setCategories(res.data.data);
     } catch (e) {
       console.error("Error fetching categories", e);
     } finally {
@@ -31,15 +49,28 @@ const ManageCategories = () => {
     try {
       await wasteService.createCategory({
         namaKategori: newCategory.namaKategori,
-        pointMultiplier: parseFloat(newCategory.pointMultiplier)
+        pointMultiplier: parseFloat(newCategory.pointMultiplier),
+        wasteType: newCategory.wasteType
       });
       setStatus({ type: 'success', message: 'Kategori berhasil ditambahkan!' });
-      setNewCategory({ namaKategori: '', pointMultiplier: '' });
+      setNewCategory({ namaKategori: '', pointMultiplier: '', wasteType: 'ORGANIC' });
       fetchCategories();
     } catch (err) {
       setStatus({ type: 'error', message: 'Gagal menambahkan kategori.' });
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleDelete = async (id) => {
+    if (window.confirm('Apakah Anda yakin ingin menghapus kategori ini?')) {
+      try {
+        await wasteService.deleteCategory(id);
+        setStatus({ type: 'success', message: 'Kategori berhasil dihapus!' });
+        fetchCategories();
+      } catch (err) {
+        setStatus({ type: 'error', message: 'Gagal menghapus kategori.' });
+      }
     }
   };
 
@@ -83,6 +114,19 @@ const ManageCategories = () => {
                 required
               />
             </div>
+            <div className="form-group">
+              <label className="form-label">Jenis Sampah</label>
+              <select 
+                className="form-control" 
+                value={newCategory.wasteType}
+                onChange={(e) => setNewCategory({...newCategory, wasteType: e.target.value})}
+                required
+              >
+                <option value="ORGANIC">Organik</option>
+                <option value="INORGANIC">Anorganik</option>
+                <option value="HAZARDOUS">B3 (Bahan Berbahaya & Beracun)</option>
+              </select>
+            </div>
             <button type="submit" className="btn btn-primary" style={{ width: '100%' }} disabled={loading}>
               <Plus size={18} /> {loading ? 'Menambahkan...' : 'Simpan Kategori'}
             </button>
@@ -101,6 +145,7 @@ const ManageCategories = () => {
               <thead>
                 <tr>
                   <th>Nama Kategori</th>
+                  <th>Jenis Sampah</th>
                   <th>Poin/kg</th>
                   <th>Aksi</th>
                 </tr>
@@ -109,9 +154,13 @@ const ManageCategories = () => {
                 {categories.map(cat => (
                   <tr key={cat.id}>
                     <td style={{ fontWeight: 500 }}>{formatCategory(cat.namaKategori)}</td>
+                    <td><span className={`badge ${getWasteTypeBadgeClass(cat.wasteType)}`}>{formatWasteType(cat.wasteType)}</span></td>
                     <td><span className="badge badge-success">{cat.pointMultiplier} Poin/kg</span></td>
                     <td>
-                      <button style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--danger)' }}>
+                      <button 
+                        onClick={() => handleDelete(cat.id)}
+                        style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--danger)' }}
+                      >
                         <Trash2 size={18} />
                       </button>
                     </td>

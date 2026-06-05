@@ -17,7 +17,7 @@ const OutboundForm = ({ onOutboundSuccess, locationId }) => {
     const fetchCategories = async () => {
       try {
         const res = await wasteService.getCategories();
-        setCategories(res.data);
+        setCategories(res.data?.data || []);
       } catch (e) {
         console.error("Error fetching categories", e);
       }

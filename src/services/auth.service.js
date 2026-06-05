@@ -1,12 +1,13 @@
 import api from './api';
 
-const signup = (nama, email, password, alamat, role) => {
+const signup = (nama, email, password, alamat, role, locationId) => {
   return api.post('/auth/signup', {
     nama,
     email,
     password,
     alamat,
-    role
+    role,
+    locationId
   });
 };
 

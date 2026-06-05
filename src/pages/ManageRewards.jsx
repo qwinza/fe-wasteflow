@@ -3,23 +3,44 @@ import { Gift, Plus, Edit2, Trash2, Search, ArrowLeft, ShoppingBag, X, Check } f
 import { Link } from 'react-router-dom';
 
 const ManageRewards = () => {
-  const [rewards, setRewards] = useState([
-    { id: 1, name: 'Voucher Listrik 50rb', points: 5000, category: 'Utilitas', stock: 50, img: 'https://images.unsplash.com/photo-1473341304170-971dccb5ac1e?w=300' },
-    { id: 2, name: 'Paket Sembako Wilayah', points: 7500, category: 'Logistik', stock: 20, img: 'https://images.unsplash.com/photo-1542838132-92c53300491e?w=300' },
-    { id: 3, name: 'Peralatan Kebersihan', points: 3000, category: 'Peralatan', stock: 15, img: 'https://images.unsplash.com/photo-1584622650111-993a426fbf0a?w=300' }
-  ]);
+  const [rewards, setRewards] = useState([]);
   const [showModal, setShowModal] = useState(false);
   const [editingReward, setEditingReward] = useState(null);
-  const [formData, setFormData] = useState({ name: '', points: '', category: 'Umum', stock: '', img: '' });
+  const [formData, setFormData] = useState({ name: '', points: '', category: 'Umum', stock: '', img: '', description: '' });
   const [searchTerm, setSearchTerm] = useState('');
+
+  useEffect(() => {
+    const stored = localStorage.getItem('wasteflow_rewards');
+    if (stored) {
+      setRewards(JSON.parse(stored));
+    } else {
+      const defaultRewards = [
+        { id: 1, name: 'Voucher Listrik Rp 50.000', points: 5000, category: 'Utilitas', stock: 50, img: 'https://images.unsplash.com/photo-1473341304170-971dccb5ac1e?w=300', description: 'Token listrik prabayar untuk kebutuhan rumah tangga Anda.' },
+        { id: 2, name: 'Paket Sembako Premium', points: 7500, category: 'Logistik', stock: 20, img: 'https://images.unsplash.com/photo-1542838132-92c53300491e?w=300', description: 'Beras 5kg, Minyak 2L, dan Gula 1kg.' },
+        { id: 3, name: 'Alat Kebersihan Baru', points: 3000, category: 'Peralatan', stock: 15, img: 'https://images.unsplash.com/photo-1584622650111-993a426fbf0a?w=300', description: 'Satu set sapu, pengki, dan tempat sampah pilah.' },
+        { id: 4, name: 'Pupuk Kompos Organik (10kg)', points: 2000, category: 'Pertanian', stock: 30, img: 'https://images.unsplash.com/photo-1585314062340-f1a5a7c9328d?w=300', description: 'Pupuk berkualitas hasil olahan sampah organik.' },
+        { id: 5, name: 'Voucher Belanja Rp 100.000', points: 9000, category: 'Voucher', stock: 10, img: 'https://images.unsplash.com/photo-1556742044-3c52d6e88c62?w=300', description: 'Dapat digunakan di minimarket rekanan WasteFlow.' },
+        { id: 6, name: 'Tong Sampah Bio-Degradable', points: 4500, category: 'Peralatan', stock: 25, img: 'https://images.unsplash.com/photo-1532996122724-e3c354a0b15b?w=300', description: 'Tempat sampah modern untuk mempermudah pemilahan.' }
+      ];
+      localStorage.setItem('wasteflow_rewards', JSON.stringify(defaultRewards));
+      setRewards(defaultRewards);
+    }
+  }, []);
 
   const handleOpenModal = (reward = null) => {
     if (reward) {
       setEditingReward(reward);
-      setFormData({ ...reward });
+      setFormData({ 
+        name: reward.name || '',
+        points: reward.points || '',
+        category: reward.category || 'Umum',
+        stock: reward.stock || '',
+        img: reward.img || '',
+        description: reward.description || ''
+      });
     } else {
       setEditingReward(null);
-      setFormData({ name: '', points: '', category: 'Umum', stock: '', img: 'https://images.unsplash.com/photo-1513519245088-0e12902e5a38?w=300' });
+      setFormData({ name: '', points: '', category: 'Umum', stock: '', img: 'https://images.unsplash.com/photo-1513519245088-0e12902e5a38?w=300', description: '' });
     }
     setShowModal(true);
   };
@@ -31,17 +52,22 @@ const ManageRewards = () => {
 
   const handleSubmit = (e) => {
     e.preventDefault();
+    let updated;
     if (editingReward) {
-      setRewards(rewards.map(r => r.id === editingReward.id ? { ...formData, id: r.id } : r));
+      updated = rewards.map(r => r.id === editingReward.id ? { ...formData, id: r.id } : r);
     } else {
-      setRewards([...rewards, { ...formData, id: Date.now() }]);
+      updated = [...rewards, { ...formData, id: Date.now() }];
     }
+    setRewards(updated);
+    localStorage.setItem('wasteflow_rewards', JSON.stringify(updated));
     handleCloseModal();
   };
 
   const handleDelete = (id) => {
     if (window.confirm('Hapus reward ini?')) {
-      setRewards(rewards.filter(r => r.id !== id));
+      const updated = rewards.filter(r => r.id !== id);
+      setRewards(updated);
+      localStorage.setItem('wasteflow_rewards', JSON.stringify(updated));
     }
   };
 
@@ -218,6 +244,16 @@ const ManageRewards = () => {
                   <option value="Voucher">Voucher</option>
                   <option value="Umum">Umum</option>
                 </select>
+              </div>
+
+              <div style={{ marginBottom: '1.5rem' }}>
+                <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: '600', fontSize: '0.9rem' }}>Deskripsi</label>
+                <textarea 
+                  value={formData.description || ''}
+                  onChange={(e) => setFormData({...formData, description: e.target.value})}
+                  placeholder="Keterangan / deskripsi reward..."
+                  style={{ width: '100%', padding: '0.8rem', borderRadius: '12px', border: '1px solid var(--border)', outline: 'none', resize: 'vertical', minHeight: '80px', fontFamily: 'inherit' }}
+                />
               </div>
 
               <div style={{ marginBottom: '2rem' }}>

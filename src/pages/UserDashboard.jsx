@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Leaf, Award, MessageSquare, History, PlusCircle, ArrowRight, MapPin, Gift } from 'lucide-react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import RecommendationCard from '../components/RecommendationCard';
 import FeedbackForm from '../components/FeedbackForm';
 import wasteService from '../services/waste.service';
@@ -8,13 +8,15 @@ import authService from '../services/auth.service';
 import { formatCategory } from '../utils/formatters';
 
 const UserDashboard = () => {
+  const currentUser = authService.getCurrentUser() || {};
   const [history, setHistory] = useState([]);
-  const [allHistory, setAllHistory] = useState([]); // Store original data
+  const [myPoints, setMyPoints] = useState(0);
   const [locations, setLocations] = useState([]);
-  const [selectedTpsId, setSelectedTpsId] = useState('');
+  const [selectedTpsId, setSelectedTpsId] = useState(currentUser?.locationId ? currentUser.locationId.toString() : '');
   const [recommendation, setRecommendation] = useState('');
   const [loading, setLoading] = useState(true);
-  const currentUser = authService.getCurrentUser() || {};
+  const [dashboardRewards, setDashboardRewards] = useState([]);
+  const navigate = useNavigate();
   const userId = currentUser?.id;
 
   useEffect(() => {
@@ -22,21 +24,41 @@ const UserDashboard = () => {
       try {
         // Fetch Locations
         const locRes = await wasteService.getLocations();
-        const locs = Array.isArray(locRes?.data) ? locRes.data : [];
+        const locs = Array.isArray(locRes?.data?.data) ? locRes.data.data : [];
         setLocations(locs);
-        if (locs.length > 0 && !selectedTpsId) {
-          setSelectedTpsId(currentUser?.locationId || locs[0].id.toString());
+        
+        if (currentUser?.locationId) {
+          setSelectedTpsId(currentUser.locationId.toString());
+        } else if (locs.length > 0 && !selectedTpsId) {
+          setSelectedTpsId(locs[0].id.toString());
         }
 
         // Fetch Recommendations
         const recRes = await wasteService.getRecommendations(userId);
         setRecommendation(recRes?.data?.recommendation || "Belum ada rekomendasi.");
+
+        // Fetch user's own deposits for personal points
+        const myRes = await wasteService.getDepositsByUser(userId);
+        const myData = Array.isArray(myRes?.data) ? myRes.data : [];
+        const total = Math.round(myData.reduce((acc, curr) => acc + (curr.points || 0), 0) * 100) / 100;
+        const redeemed = Number(localStorage.getItem(`wasteflow_redeemed_points_${userId}`)) || 0;
+        const finalPoints = Math.max(0, Math.round((total - redeemed) * 100) / 100);
+        setMyPoints(finalPoints);
       } catch (err) {
         console.error("Error fetching initial data", err);
       }
     };
 
     if (userId) fetchInitialData();
+
+    // Load rewards from localStorage (synced with ManageRewards admin page)
+    const stored = localStorage.getItem('wasteflow_rewards');
+    if (stored) {
+      try {
+        const parsed = JSON.parse(stored);
+        setDashboardRewards(parsed.slice(0, 3)); // show first 3 as preview
+      } catch {}
+    }
   }, [userId]);
 
   // Fetch history whenever selectedTpsId changes
@@ -65,7 +87,7 @@ const UserDashboard = () => {
     fetchTpsData();
   }, [selectedTpsId]);
 
-  const totalPoints = Array.isArray(history) ? history.reduce((acc, curr) => acc + (curr.points || 0), 0) : 0;
+  const totalPoints = Array.isArray(history) ? Math.round(history.reduce((acc, curr) => acc + (curr.points || 0), 0) * 100) / 100 : 0;
   const currentTpsName = locations.find(l => l.id.toString() === selectedTpsId.toString())?.namaLokasi || 'Wilayah';
 
   if (loading) return (
@@ -107,26 +129,8 @@ const UserDashboard = () => {
           <div>
             <h1 style={{ fontSize: '2.4rem', fontWeight: '800', marginBottom: '0.25rem', color: 'white' }}>Panel TPS {currentTpsName}</h1>
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginTop: '0.5rem' }}>
-              <span style={{ color: 'rgba(255,255,255,0.8)', fontSize: '0.9rem', fontWeight: '500' }}>Pilih Wilayah TPS:</span>
-              <select
-                value={selectedTpsId}
-                onChange={(e) => setSelectedTpsId(e.target.value)}
-                style={{
-                  background: 'rgba(255,255,255,0.2)',
-                  border: '1px solid rgba(255,255,255,0.3)',
-                  borderRadius: '10px',
-                  color: 'white',
-                  padding: '0.4rem 0.8rem',
-                  fontSize: '0.9rem',
-                  fontWeight: '600',
-                  outline: 'none',
-                  cursor: 'pointer'
-                }}
-              >
-                {locations.map(loc => (
-                  <option key={loc.id} value={loc.id} style={{ color: 'black' }}>{loc.namaLokasi}</option>
-                ))}
-              </select>
+              <span style={{ color: 'rgba(255,255,255,0.8)', fontSize: '0.9rem', fontWeight: '500' }}>Wilayah TPS Anda:</span>
+              <span style={{ fontSize: '1rem', fontWeight: '700', color: 'white' }}>{currentTpsName}</span>
             </div>
           </div>
         </div>
@@ -187,8 +191,8 @@ const UserDashboard = () => {
           <div style={{ background: 'rgba(255,255,255,0.1)', padding: '1.2rem', borderRadius: '50%', marginBottom: '1.5rem' }}>
             <Award size={48} color="#fbbf24" />
           </div>
-          <h3 style={{ opacity: 0.7, fontWeight: '500', fontSize: '1rem', textTransform: 'uppercase', letterSpacing: '1px' }}>Saldo Poin TPS</h3>
-          <h1 style={{ color: 'white', fontSize: '4rem', fontWeight: '900', margin: '0.5rem 0', lineHeight: 1 }}>{totalPoints}</h1>
+          <h3 style={{ opacity: 0.7, fontWeight: '500', fontSize: '1rem', textTransform: 'uppercase', letterSpacing: '1px' }}>Poin Saya</h3>
+          <h1 style={{ color: 'white', fontSize: '4rem', fontWeight: '900', margin: '0.5rem 0', lineHeight: 1 }}>{myPoints.toLocaleString('id-ID', { maximumFractionDigits: 2 })}</h1>
           <div style={{ marginTop: '1rem', padding: '0.5rem 1rem', background: 'rgba(16, 185, 129, 0.2)', borderRadius: '99px', color: '#34d399', fontWeight: '700', fontSize: '0.9rem' }}>
             Siap Ditukarkan
           </div>
@@ -199,9 +203,9 @@ const UserDashboard = () => {
       <div style={{ marginBottom: '4rem' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem' }}>
           <h2 style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', fontSize: '1.8rem', fontWeight: '800' }}>
-            <Gift size={32} color="var(--primary)" /> Katalog Reward TPS
+            <Gift size={32} color="var(--primary)" /> Katalog Reward
           </h2>
-          <span style={{ color: 'var(--text-muted)', fontWeight: '500' }}>Tukarkan poin kolektif warga di sini</span>
+          <span style={{ color: 'var(--text-muted)', fontWeight: '500' }}>Tukarkan poin Anda dengan reward pilihan</span>
         </div>
 
         <div style={{
@@ -209,39 +213,50 @@ const UserDashboard = () => {
           gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))',
           gap: '2rem'
         }}>
-          {/* Placeholder Rewards */}
-          {[
-            { id: 1, name: 'Voucher Listrik 50rb', pts: 5000, img: 'https://images.unsplash.com/photo-1473341304170-971dccb5ac1e?w=300' },
-            { id: 2, name: 'Paket Sembako Wilayah', pts: 7500, img: 'https://images.unsplash.com/photo-1542838132-92c53300491e?w=300' },
-            { id: 3, name: 'Peralatan Kebersihan', pts: 3000, img: 'https://images.unsplash.com/photo-1584622650111-993a426fbf0a?w=300' }
-          ].map(reward => (
-            <div key={reward.id} className="card" style={{
-              padding: '0',
-              borderRadius: '20px',
-              overflow: 'hidden',
-              border: '1px solid var(--border)',
-              transition: 'transform 0.3s'
-            }} onMouseOver={(e) => e.currentTarget.style.transform = 'translateY(-8px)'} onMouseOut={(e) => e.currentTarget.style.transform = 'translateY(0)'}>
-              <img src={reward.img} alt={reward.name} style={{ width: '100%', height: '140px', objectFit: 'cover' }} />
-              <div style={{ padding: '1.5rem' }}>
-                <h4 style={{ fontWeight: '700', marginBottom: '0.5rem' }}>{reward.name}</h4>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '1rem' }}>
-                  <span style={{ color: 'var(--primary)', fontWeight: '800', fontSize: '1.1rem' }}>{reward.pts} Pts</span>
-                  <button style={{
-                    padding: '0.5rem 1rem',
-                    borderRadius: '10px',
-                    border: 'none',
-                    background: totalPoints >= reward.pts ? 'var(--primary)' : '#f1f5f9',
-                    color: totalPoints >= reward.pts ? 'white' : '#94a3b8',
-                    fontWeight: '700',
-                    cursor: totalPoints >= reward.pts ? 'pointer' : 'not-allowed'
-                  }}>
-                    Tukar
-                  </button>
+          {/* Rewards loaded from Admin's ManageRewards */}
+          {dashboardRewards.map(reward => {
+            const canAfford = myPoints >= Number(reward.points);
+            return (
+              <div key={reward.id} className="card" style={{
+                padding: '0',
+                borderRadius: '20px',
+                overflow: 'hidden',
+                border: `1px solid ${canAfford ? 'rgba(16,185,129,0.2)' : 'var(--border)'}`,
+                transition: 'transform 0.3s, box-shadow 0.3s'
+              }} onMouseOver={(e) => { e.currentTarget.style.transform = 'translateY(-8px)'; e.currentTarget.style.boxShadow = '0 12px 24px rgba(0,0,0,0.08)'; }} onMouseOut={(e) => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = ''; }}>
+                <div style={{ position: 'relative', height: '140px', overflow: 'hidden' }}>
+                  <img src={reward.img || reward.image} alt={reward.name} style={{ width: '100%', height: '140px', objectFit: 'cover' }} />
+                  {canAfford && (
+                    <div style={{ position: 'absolute', top: '0.75rem', left: '0.75rem', background: 'rgba(16,185,129,0.9)', color: 'white', padding: '0.2rem 0.6rem', borderRadius: '99px', fontSize: '0.7rem', fontWeight: '700' }}>
+                      ✓ Bisa Ditukar
+                    </div>
+                  )}
+                </div>
+                <div style={{ padding: '1.5rem' }}>
+                  <h4 style={{ fontWeight: '700', marginBottom: '0.25rem' }}>{reward.name}</h4>
+                  <p style={{ color: 'var(--text-muted)', fontSize: '0.8rem', marginBottom: '1rem', lineHeight: 1.4 }}>{reward.description || ''}</p>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <span style={{ color: 'var(--primary)', fontWeight: '800', fontSize: '1.1rem' }}>{Number(reward.points || 0).toLocaleString('id-ID')} Pts</span>
+                    <button
+                      onClick={() => navigate('/tukar-poin')}
+                      style={{
+                        padding: '0.5rem 1rem',
+                        borderRadius: '10px',
+                        border: 'none',
+                        background: canAfford ? 'var(--primary)' : '#f1f5f9',
+                        color: canAfford ? 'white' : '#94a3b8',
+                        fontWeight: '700',
+                        cursor: canAfford ? 'pointer' : 'not-allowed',
+                        transition: 'all 0.2s'
+                      }}
+                    >
+                      Tukar
+                    </button>
+                  </div>
                 </div>
               </div>
-            </div>
-          ))}
+            );
+          })}
           <Link to="/tukar-poin" style={{
             textDecoration: 'none',
             display: 'flex',
@@ -300,7 +315,7 @@ const UserDashboard = () => {
                         </div>
                       </td>
                       <td style={{ padding: '1.2rem 1.5rem', fontWeight: '500' }}>{item.berat} kg</td>
-                      <td style={{ padding: '1.2rem 1.5rem', fontWeight: '700', color: 'var(--primary)' }}>+{item.points}</td>
+                      <td style={{ padding: '1.2rem 1.5rem', fontWeight: '700', color: 'var(--primary)' }}>+{(Math.round((item.points || 0) * 100) / 100).toLocaleString('id-ID', { maximumFractionDigits: 2 })}</td>
                     </tr>
                   )) : (
                     <tr>

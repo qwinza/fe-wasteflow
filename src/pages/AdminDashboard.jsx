@@ -16,7 +16,7 @@ const AdminDashboard = () => {
     const fetchLocations = async () => {
       try {
         const res = await wasteService.getLocations();
-        const data = res.data || [];
+        const data = res.data?.data || [];
         setLocations(data);
         if (data.length > 0) {
           setSelectedLocation(data[0]);

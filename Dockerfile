@@ -1,14 +1,24 @@
-# Stage 1: Build the React application
-FROM node:20-alpine AS build
+FROM node:20
 WORKDIR /app
+
 COPY package*.json ./
 RUN npm install
+
 COPY . .
 RUN npm run build
 
-# Stage 2: Serve the static files using Nginx
-FROM nginx:alpine
-COPY --from=build /app/dist /usr/share/nginx/html
-COPY nginx.conf /etc/nginx/conf.d/default.conf
-EXPOSE 80
-CMD ["nginx", "-g", "daemon off;"]
+# Install wget dan Cloudflared
+RUN apt-get update && apt-get install -y wget && \
+    wget -q https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64.deb && \
+    dpkg -i cloudflared-linux-amd64.deb && \
+    rm cloudflared-linux-amd64.deb
+
+# Install serve
+RUN npm install -g serve
+
+# Setup script eksekusi
+COPY start.sh start.sh
+RUN chmod +x start.sh
+
+EXPOSE 8081
+CMD ["./start.sh"]

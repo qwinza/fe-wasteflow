@@ -1,7 +1,8 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { UserPlus, Mail, Lock, User, MapPin, AlertCircle, CheckCircle, Leaf, ArrowRight } from 'lucide-react';
 import authService from '../services/auth.service';
+import wasteService from '../services/waste.service';
 
 const Register = () => {
   const [formData, setFormData] = useState({
@@ -9,12 +10,26 @@ const Register = () => {
     email: '',
     password: '',
     alamat: '',
-    role: 'WARGA'
+    locationId: ''
   });
+  const [locations, setLocations] = useState([]);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState(false);
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
+
+  useEffect(() => {
+    const fetchLocations = async () => {
+      try {
+        const res = await wasteService.getLocations();
+        const data = Array.isArray(res?.data?.data) ? res.data.data : [];
+        setLocations(data);
+      } catch (err) {
+        console.error("Gagal mengambil daftar lokasi", err);
+      }
+    };
+    fetchLocations();
+  }, []);
 
   const handleChange = (e) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
@@ -25,13 +40,20 @@ const Register = () => {
     setError('');
     setLoading(true);
 
+    if (!formData.locationId) {
+      setError('Silakan pilih lokasi TPS untuk tempat tinggal Anda.');
+      setLoading(false);
+      return;
+    }
+
     try {
       await authService.signup(
         formData.nama,
         formData.email,
         formData.password,
         formData.alamat,
-        formData.role
+        'WARGA',
+        parseInt(formData.locationId)
       );
       setSuccess(true);
       setTimeout(() => navigate('/login'), 2000);
@@ -130,8 +152,8 @@ const Register = () => {
           overflowY: 'auto'
         }} className="form-panel">
           <div style={{ marginBottom: '2rem' }}>
-            <h2 style={{ fontSize: '2rem', fontWeight: '700', color: 'var(--text)', marginBottom: '0.5rem' }}>Daftar Akun</h2>
-            <p style={{ color: 'var(--text-muted)' }}>Bergabunglah dengan gerakan WasteFlow</p>
+            <h2 style={{ fontSize: '2rem', fontWeight: '700', color: 'var(--text)', marginBottom: '0.5rem' }}>Daftar Akun Warga</h2>
+            <p style={{ color: 'var(--text-muted)' }}>Daftar sebagai warga penyetor sampah di TPS Anda</p>
           </div>
 
           {error && (
@@ -223,27 +245,32 @@ const Register = () => {
             </div>
 
             <div>
-              <label style={{ display: 'block', marginBottom: '0.4rem', fontWeight: '600', color: 'var(--text)', fontSize: '0.9rem' }}>Daftar Sebagai</label>
-              <select 
-                name="role" 
-                style={{
-                  ...inputStyle,
-                  paddingLeft: '1rem',
-                  cursor: 'pointer',
-                  appearance: 'none',
-                  backgroundImage: 'url("data:image/svg+xml;charset=US-ASCII,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%22292.4%22%20height%3D%22292.4%22%3E%3Cpath%20fill%3D%22%23131313%22%20d%3D%22M287%2069.4a17.6%2017.6%200%200%200-13-5.4H18.4c-5%200-9.3%201.8-12.9%205.4A17.6%2017.6%200%200%200%200%2082.2c0%205%201.8%209.3%205.4%2012.9l128%20127.9c3.6%203.6%207.8%205.4%2012.8%205.4s9.2-1.8%2012.8-5.4L287%2095c3.5-3.5%205.4-7.8%205.4-12.8%200-5-1.9-9.2-5.5-12.8z%22%2F%3E%3C%2Fsvg%3E")',
-                  backgroundRepeat: 'no-repeat',
-                  backgroundPosition: 'right 1rem top 50%',
-                  backgroundSize: '0.65rem auto'
-                }} 
-                value={formData.role} 
-                onChange={handleChange}
-                onFocus={handleFocus}
-                onBlur={handleBlur}
-              >
-                <option value="WARGA">Warga (Penyetor Sampah)</option>
-                <option value="ADMIN">Admin (Pengelola TPS)</option>
-              </select>
+              <label style={{ display: 'block', marginBottom: '0.4rem', fontWeight: '600', color: 'var(--text)', fontSize: '0.9rem' }}>Lokasi TPS Anda</label>
+              <div style={{ position: 'relative' }}>
+                <MapPin size={18} style={{ position: 'absolute', left: '1rem', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
+                <select 
+                  name="locationId" 
+                  style={{
+                    ...inputStyle,
+                    cursor: 'pointer',
+                    appearance: 'none',
+                    backgroundImage: 'url("data:image/svg+xml;charset=US-ASCII,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%22292.4%22%20height%3D%22292.4%22%3E%3Cpath%20fill%3D%22%23131313%22%20d%3D%22M287%2069.4a17.6%2017.6%200%200%200-13-5.4H18.4c-5%200-9.3%201.8-12.9%205.4A17.6%2017.6%200%200%200%200%2082.2c0%205%201.8%209.3%205.4%2012.9l128%20127.9c3.6%203.6%207.8%205.4%2012.8%205.4s9.2-1.8%2012.8-5.4L287%2095c3.5-3.5%205.4-7.8%205.4-12.8%200-5-1.9-9.2-5.5-12.8z%22%2F%3E%3C%2Fsvg%3E")',
+                    backgroundRepeat: 'no-repeat',
+                    backgroundPosition: 'right 1rem top 50%',
+                    backgroundSize: '0.65rem auto'
+                  }} 
+                  value={formData.locationId} 
+                  onChange={handleChange}
+                  onFocus={handleFocus}
+                  onBlur={handleBlur}
+                  required
+                >
+                  <option value="">Pilih TPS Terdekat</option>
+                  {locations.map(loc => (
+                    <option key={loc.id} value={loc.id}>{loc.namaLokasi}</option>
+                  ))}
+                </select>
+              </div>
             </div>
 
             <button 

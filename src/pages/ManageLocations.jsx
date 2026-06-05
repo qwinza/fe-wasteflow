@@ -4,7 +4,7 @@ import wasteService from '../services/waste.service';
 
 const ManageLocations = () => {
   const [locations, setLocations] = useState([]);
-  const [newLocation, setNewLocation] = useState({ namaLokasi: '', alamat: '', kapasitasMaksimal: '' });
+  const [newLocation, setNewLocation] = useState({ namaLokasi: '', koordinat: '', kapasitasMaksKg: '' });
   const [loading, setLoading] = useState(false);
   const [fetching, setFetching] = useState(true);
   const [status, setStatus] = useState({ type: '', message: '' });
@@ -12,7 +12,7 @@ const ManageLocations = () => {
   const fetchLocations = async () => {
     try {
       const res = await wasteService.getLocations();
-      setLocations(res.data);
+      setLocations(res.data.data);
     } catch (e) {
       console.error("Error fetching locations", e);
     } finally {
@@ -30,16 +30,28 @@ const ManageLocations = () => {
     try {
       await wasteService.createLocation({
         namaLokasi: newLocation.namaLokasi,
-        alamat: newLocation.alamat,
-        kapasitasMaksimal: parseFloat(newLocation.kapasitasMaksimal)
+        koordinat: newLocation.koordinat,
+        kapasitasMaksKg: parseFloat(newLocation.kapasitasMaksKg)
       });
       setStatus({ type: 'success', message: 'Lokasi TPS berhasil ditambahkan!' });
-      setNewLocation({ namaLokasi: '', alamat: '', kapasitasMaksimal: '' });
+      setNewLocation({ namaLokasi: '', koordinat: '', kapasitasMaksKg: '' });
       fetchLocations();
     } catch (err) {
       setStatus({ type: 'error', message: 'Gagal menambahkan lokasi.' });
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleDelete = async (id) => {
+    if (window.confirm('Apakah Anda yakin ingin menghapus lokasi ini?')) {
+      try {
+        await wasteService.deleteLocation(id);
+        setStatus({ type: 'success', message: 'Lokasi berhasil dihapus!' });
+        fetchLocations();
+      } catch (err) {
+        setStatus({ type: 'error', message: 'Gagal menghapus lokasi.' });
+      }
     }
   };
 
@@ -73,13 +85,13 @@ const ManageLocations = () => {
               />
             </div>
             <div className="form-group">
-              <label className="form-label">Alamat Lengkap</label>
+              <label className="form-label">Alamat / Koordinat</label>
               <input 
                 type="text" 
                 className="form-control" 
-                placeholder="Jl. Merdeka No. 123"
-                value={newLocation.alamat}
-                onChange={(e) => setNewLocation({...newLocation, alamat: e.target.value})}
+                placeholder="Jl. Merdeka No. 123 atau koordinat lat,long"
+                value={newLocation.koordinat}
+                onChange={(e) => setNewLocation({...newLocation, koordinat: e.target.value})}
                 required
               />
             </div>
@@ -89,8 +101,8 @@ const ManageLocations = () => {
                 type="number" 
                 className="form-control" 
                 placeholder="Misal: 1000"
-                value={newLocation.kapasitasMaksimal}
-                onChange={(e) => setNewLocation({...newLocation, kapasitasMaksimal: e.target.value})}
+                value={newLocation.kapasitasMaksKg}
+                onChange={(e) => setNewLocation({...newLocation, kapasitasMaksKg: e.target.value})}
                 required
               />
             </div>
@@ -112,7 +124,7 @@ const ManageLocations = () => {
               <thead>
                 <tr>
                   <th>Nama Lokasi</th>
-                  <th>Alamat</th>
+                  <th>Alamat / Koordinat</th>
                   <th>Kapasitas</th>
                   <th>Aksi</th>
                 </tr>
@@ -121,10 +133,13 @@ const ManageLocations = () => {
                 {locations.map(loc => (
                   <tr key={loc.id}>
                     <td style={{ fontWeight: 500 }}>{loc.namaLokasi}</td>
-                    <td style={{ fontSize: '0.875rem', color: 'var(--text-muted)' }}>{loc.alamat}</td>
-                    <td style={{ fontWeight: 600 }}>{loc.kapasitasMaksimal} kg</td>
+                    <td style={{ fontSize: '0.875rem', color: 'var(--text-muted)' }}>{loc.koordinat}</td>
+                    <td style={{ fontWeight: 600 }}>{loc.kapasitasMaksKg} kg</td>
                     <td>
-                      <button style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--danger)' }}>
+                      <button 
+                        onClick={() => handleDelete(loc.id)}
+                        style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--danger)' }}
+                      >
                         <Trash2 size={18} />
                       </button>
                     </td>

@@ -6,12 +6,12 @@ import authService from '../services/auth.service';
 import { formatCategory } from '../utils/formatters';
 
 const AddDeposit = () => {
+  const currentUser = authService.getCurrentUser();
   const [categories, setCategories] = useState([]);
-  const [locations, setLocations] = useState([]);
   const [formData, setFormData] = useState({
     categoryId: '',
     namaSampah: '',
-    locationId: '',
+    locationId: currentUser?.locationId || '',
     berat: ''
   });
   const [loading, setLoading] = useState(false);
@@ -19,18 +19,13 @@ const AddDeposit = () => {
   const [status, setStatus] = useState({ type: '', message: '' });
   
   const navigate = useNavigate();
-  const currentUser = authService.getCurrentUser();
 
   useEffect(() => {
     const loadData = async () => {
       try {
-        const [catRes, locRes] = await Promise.all([
-          wasteService.getCategories(),
-          wasteService.getLocations()
-        ]);
-        console.log("Categories loaded:", catRes.data);
-        setCategories(Array.isArray(catRes.data) ? catRes.data : []);
-        setLocations(Array.isArray(locRes.data) ? locRes.data : []);
+        const catRes = await wasteService.getCategories();
+        console.log("Categories loaded:", catRes.data?.data);
+        setCategories(Array.isArray(catRes.data?.data) ? catRes.data.data : []);
       } catch (err) {
         console.error("Failed to load form data", err);
       } finally {
@@ -129,21 +124,17 @@ const AddDeposit = () => {
             </div>
 
             <div className="form-group">
-              <label className="form-label">Lokasi TPS</label>
+              <label className="form-label">Lokasi TPS Anda</label>
               <div style={{ position: 'relative' }}>
                 <MapPin size={18} style={{ position: 'absolute', left: '1rem', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
-                <select 
+                <input 
+                  type="text" 
                   className="form-control" 
-                  style={{ paddingLeft: '3rem' }}
-                  value={formData.locationId}
-                  onChange={(e) => setFormData({...formData, locationId: e.target.value})}
-                  required
-                >
-                  <option value="">Pilih TPS</option>
-                  {locations.map(loc => (
-                    <option key={loc.id} value={loc.id}>{loc.namaLokasi}</option>
-                  ))}
-                </select>
+                  style={{ paddingLeft: '3rem', backgroundColor: '#f1f5f9', cursor: 'not-allowed' }}
+                  value={currentUser?.locationName || 'Lokasi Belum Terdaftar'}
+                  disabled
+                  readOnly
+                />
               </div>
             </div>
 

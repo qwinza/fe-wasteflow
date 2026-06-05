@@ -2,12 +2,21 @@
 @import "tailwindcss";
 
 @theme {
+  /* Eco (green) palette */
   --color-eco-50: #f0fdf4;
   --color-eco-100: #dcfce7;
+  --color-eco-200: #bbf7d0;
+  --color-eco-300: #86efac;
+  --color-eco-400: #4ade80;
   --color-eco-500: #22c55e;
   --color-eco-600: #16a34a;
   --color-eco-700: #15803d;
+  --color-eco-800: #166534;
   --color-eco-900: #14532d;
+
+  /* Teal palette for gradient combos */
+  --color-teal-100: #ccfbf1;
+  --color-teal-600: #0d9488;
 }
 
 :root {
@@ -241,6 +250,21 @@ tr:last-child td {
 .badge-success {
   background: var(--primary-light);
   color: var(--primary-dark);
+}
+
+.badge-organic {
+  background: #e8f5e9;
+  color: #2e7d32;
+}
+
+.badge-inorganic {
+  background: #e0f2f1;
+  color: #00796b;
+}
+
+.badge-hazardous {
+  background: #ffebee;
+  color: #c62828;
 }
 
 /* Animations */
